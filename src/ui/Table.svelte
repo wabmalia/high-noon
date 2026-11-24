@@ -5,6 +5,7 @@
   import type { RoomView } from '../net/protocol';
   import { session } from '../net/session.svelte';
   import Hand from './Hand.svelte';
+  import { ITEM_TEXT } from './items';
   import RulesSheet from './RulesSheet.svelte';
 
   let { room }: { room: RoomView } = $props();
@@ -145,16 +146,21 @@
           }}>OK</button
         >
       {:else if prompt.kind === 'shop' && me}
-        <h2>The bar</h2>
-        <p class="muted small">Hand ${handMoney(me)} · Bank ${me.bank}</p>
+        <div class="bar-head">
+          <div>
+            <h2>The bar</h2>
+            <p class="muted small">Hand ${handMoney(me)} · Bank ${me.bank}</p>
+          </div>
+          <button class="primary" onclick={() => session.act({ t: 'pass' })}>Done</button>
+        </div>
         <div class="shop">
           {#each ITEMS as item (item)}
             <button class="item" disabled={!options(item)} onclick={() => session.act({ t: 'buy', item })}>
-              <span>{ITEM_NAME[item]}</span><span class="price">${PRICE[item]}</span>
+              <span class="item-name">{ITEM_NAME[item]}</span><span class="price">${PRICE[item]}</span>
+              <span class="item-text">{ITEM_TEXT[item]}</span>
             </button>
           {/each}
         </div>
-        <button class="primary" onclick={() => session.act({ t: 'pass' })}>Done</button>
       {:else if prompt.kind === 'target'}
         <h2>{ITEM_NAME[prompt.item]}</h2>
         <p>{pickHint[prompt.picks]}</p>
@@ -197,7 +203,7 @@
     {/if}
   </section>
 
-  {#if g.log.length}
+  {#if g.log.length && !(mine && prompt?.kind === 'shop')}
     <ul class="log muted small" aria-live="polite">
       {#each g.log.slice(-3) as line, i (i)}<li>{line}</li>{/each}
     </ul>
@@ -410,18 +416,39 @@
   .suit {
     font-size: 1.3rem;
   }
+  .bar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    text-align: left;
+  }
+  .bar-head button {
+    padding-inline: 1.4rem;
+  }
+  /* One item per row: name and price, what it does underneath. The list
+     scrolls on its own, so my hand stays in view on small phones. */
   .shop {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: max(9rem, calc(100dvh - 29.5rem));
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .item {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.4rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 0.5rem;
     text-align: left;
-    padding: 0.55rem 0.65rem;
-    font-size: 0.9rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.95rem;
+  }
+  .item-text {
+    grid-column: 1 / -1;
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--muted);
   }
   .price {
     color: var(--gold);

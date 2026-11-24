@@ -1,18 +1,8 @@
 <script lang="ts">
   import { ITEMS, ITEM_NAME, PRICE, TARGET } from '../engine/game';
+  import { ITEM_TEXT } from './items';
 
   let { onclose }: { onclose: () => void } = $props();
-
-  const WHAT: Record<string, string> = {
-    horseshoe: 'One of your cards may come twice.',
-    road: 'They get one card, then must stay.',
-    roulette: 'They get 3 cards. Survive: you get $10 back.',
-    shoot: 'Throw away any card.',
-    pickpocket: 'Take a card from someone.',
-    sharp: 'Swap two cards between two players.',
-    cut: 'Take a share of what they score.',
-    double: 'Your card points x2.',
-  };
 </script>
 
 <div class="backdrop" role="presentation" onclick={onclose}></div>
@@ -31,7 +21,7 @@
   <dl>
     {#each ITEMS as item (item)}
       <dt>{ITEM_NAME[item]} <span class="price">${PRICE[item]}</span></dt>
-      <dd>{WHAT[item]}</dd>
+      <dd>{ITEM_TEXT[item]}</dd>
     {/each}
   </dl>
   <button class="primary" onclick={onclose}>Got it</button>
