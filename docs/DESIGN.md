@@ -61,7 +61,8 @@ fair, and the "n copies of n" distribution of the original is gone.
   several runs at once: 1-2, 4-5 and 7-8 score $3 + $9 + $15 = $27.
 - A card with no neighbour scores **nothing**: 3-4 with a lone 10 scores
   $7.
-- **Solo:** if a single card is your *whole* hand, it scores its value.
+- **Solo:** if a single card is your *whole* hand, it scores its value
+  (confirmed: a Solo is a scoring rule, not a game mode).
   Staying with just a 10 banks $10 and keeps your money safe for later
   rounds and the bar.
 - **Proposal:** Horseshoe copies follow their number. Two 8s inside 7-8-9
@@ -157,14 +158,16 @@ who will win that round.
 - The round's winner is whoever scores the most that round. Ties are fine
   (all of them won). A round where the best score is $0 has no winner.
 - A right bet pays **the winner's round score, divided by the number of
-  players who bet** (rounded down), into the bettor's bank. A wrong bet
-  just loses the $5.
+  players who bet on that winner** (rounded down), into the bettor's bank.
+  A wrong bet just loses the $5.
+- Betting right doesn't mean winning money: if the winner scores $8 and two
+  players backed them, each gets $4 back for their $5. That's the point of
+  the $5 stake: a safe pick on a crowded favourite can still lose.
+- **Proposal:** with tied winners, each winner's backers split that
+  winner's score.
 - Bets stay hidden until the round ends, then everyone sees who bet on
   whom.
 - **Proposal:** you may bet on yourself.
-- **Proposal:** "the number of players who bet" means everyone who placed
-  a bet that round, right or wrong, so a crowded table pays less. To
-  confirm.
 
 ## Winning
 
