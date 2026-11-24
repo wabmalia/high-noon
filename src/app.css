@@ -1,0 +1,132 @@
+:root {
+  /* A saloon: dark wood, cream paper, red and gold. Dark only. */
+  color-scheme: dark;
+  --bg: #24160e;
+  --surface: #352114;
+  --surface-2: #47301e;
+  --text: #f3e6c8;
+  --muted: #bca98a;
+  --border: #5c3f28;
+  --accent: #c2412d;
+  --accent-text: #fff6e6;
+  --gold: #e0a83c;
+  --good: #6fae5a;
+  --bad: #e0573f;
+  --stay: #5b93c8;
+  --focus: #e0a83c;
+  --card-face: #f6ecd4;
+  --card-edge: #3a2414;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 14px rgb(0 0 0 / 0.35);
+  --radius: 12px;
+  --western: 'Rye', Georgia, serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+h1,
+h2,
+.western {
+  font-family: var(--western);
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+html,
+body {
+  margin: 0;
+  /* No double-tap zoom on phones. */
+  touch-action: manipulation;
+  /* A game, not a page: no text selection or copy menu from a long press,
+   a drag or a double tap (text fields still take it). */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  touch-action: manipulation;
+}
+button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--accent);
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input {
+  font: inherit;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  min-width: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Turnstile stays invisible unless Cloudflare asks the visitor to tick a box. */
+.turnstile {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 100;
+}
