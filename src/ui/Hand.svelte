@@ -28,6 +28,13 @@
     return out;
   });
 
+  // My hand stays one row, whatever its size: cards shrink to fit. In card
+  // widths: each group takes one card, each extra card in a run 0.62 of one
+  // (the rest overlaps), each gap between groups 0.27, plus room for the fan.
+  const OVERLAP = 0.38;
+  const GAP = 0.27;
+  const widths = $derived(groups.reduce((sum, grp) => sum + 1 + (grp.length - 1) * (1 - OVERLAP), 0) + Math.max(0, groups.length - 1) * GAP + 0.4);
+
   // My hand fans out a little: each card turned by its distance from the middle.
   const count = $derived(line.length);
   const fan = (group: number, i: number) => {
@@ -39,7 +46,7 @@
 </script>
 
 <div class="hand" class:mine class:theirs={!mine}>
-  <div class="tilt">
+  <div class="tilt" style={mine ? `--fit: ${widths}` : ''}>
     {#each groups as group, g (g)}
       <div class="group">
         {#each group as h, i (h.card.id)}
@@ -88,14 +95,18 @@
     margin-left: -0.9rem;
   }
 
-  /* Mine: big, held up toward me, fanned. */
+  /* Mine: big, held up toward me, fanned, always one row. The card width
+     is the hand's width shared out (--fit card widths), up to full size. */
   .mine {
     perspective: 900px;
+    container-type: inline-size;
   }
   .mine .tilt {
+    --w: min(4.1rem, calc(100cqw / var(--fit)));
+    flex-wrap: nowrap;
     justify-content: center;
-    gap: 1.1rem;
-    min-height: 6.6rem;
+    gap: calc(var(--w) * 0.27);
+    min-height: calc(var(--w) * 1.4 + 0.8rem);
     padding-top: 0.6rem;
     transform: rotateX(18deg);
     transform-origin: bottom center;
@@ -105,10 +116,10 @@
     transform-origin: bottom center;
   }
   .mine .slot :global(.card) {
-    --w: 4.1rem;
+    --w: inherit;
   }
   .mine .group :global(.slot + .slot) {
-    margin-left: -1.55rem;
+    margin-left: calc(var(--w) * -0.38);
   }
   .empty {
     margin: 0;

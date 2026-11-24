@@ -31,7 +31,15 @@ export function previewRoom(me: string, screen: string): RoomView {
   b.cuts = [me];
   s.log = ['Doc stayed', 'You: Horseshoe'];
   s.turn = 0;
-  if (screen === 'bet') {
+  if (screen === 'ten') {
+    // Ten cards, one long run: A (as 1) to 10.
+    you.line = [c(1, 'gold', { as: { value: 1, suit: 'star' } }), ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => c(r, 'star'))];
+    s.prompt = { kind: 'turn', player: me };
+  } else if (screen === 'scatter') {
+    // Ten cards in short runs with copies: the widest hand.
+    you.line = [c(1, 'gold', { as: { value: 1, suit: 'cactus' } }), c(2, 'star', { shoe: true }), c(2, 'horse'), c(4, 'cactus'), c(5, 'star', { shoe: true }), c(5, 'gold'), c(7, 'horse'), c(8, 'cactus'), c(10, 'star', { shoe: true }), c(10, 'gold')];
+    s.prompt = { kind: 'turn', player: me };
+  } else if (screen === 'bet') {
     s.phase = 'bet';
     for (const p of s.players) p.line = [];
     s.prompt = { kind: 'bet', waiting: [me, 'c'] };
