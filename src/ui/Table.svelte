@@ -55,7 +55,7 @@
   const pickHint: Record<string, string> = { player: 'Pick a player', card: 'Pick a card', two: 'Pick two cards, from two players' };
 
   let showRules = $state(false);
-  const seats = $derived(g.players);
+  const others = $derived(g.players.filter((p) => p.id !== session.me));
   const status = (p: Player) =>
     p.status === 'busted' ? 'Busted' : p.status === 'stayed' ? 'Stayed' : prompt?.kind !== 'bet' && prompt?.player === p.id ? 'Turn' : '';
 </script>
@@ -63,17 +63,18 @@
 <main>
   <header>
     <span class="western round">Round {g.round}</span>
-    <span class="muted small">First to ${TARGET} · {g.deckCount} cards left</span>
+    <span class="muted small">to ${TARGET} · {g.deckCount} left</span>
     <button class="ghost small-btn" onclick={() => (showRules = true)}>Rules</button>
+    <button class="ghost small-btn leave" onclick={() => session.leave()}>{isHost ? 'Close' : 'Leave'}</button>
   </header>
+  {#if !session.linked}<p class="warn small center">Reconnecting…</p>{/if}
 
   <section class="seats">
-    {#each seats as p (p.id)}
+    {#each others as p (p.id)}
       {@const sc = scoreLine(p)}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div
         class="seat panel"
-        class:me={p.id === session.me}
         class:turn={status(p) === 'Turn'}
         class:busted={p.status === 'busted'}
         class:pickable={pickablePlayers.includes(p.id)}
@@ -83,14 +84,14 @@
         onkeydown={(e) => e.key === 'Enter' && pickPlayer(p.id)}
       >
         <div class="seat-head">
-          <span class="name">{p.name}{p.id === session.me ? ' (you)' : ''}</span>
+          <span class="name">{p.name}</span>
           {#if !connected(p.id)}<span class="chip off">away</span>{/if}
           {#if status(p)}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
           <span class="bank">${p.bank}</span>
         </div>
-        <Hand line={p.line} small={p.id !== session.me} pickable={pickableCards} picked={pickedCards} onpick={pickCard} />
+        <Hand line={p.line} pickable={pickableCards} picked={pickedCards} onpick={pickCard} />
         <div class="seat-foot muted small">
-          {#if p.status !== 'busted' && p.line.length}<span>Scores ${sc.total}</span>{/if}
+          {#if p.status !== 'busted' && p.line.length}<span>${sc.total}</span>{/if}
           {#if p.double}<span class="badge">x2</span>{/if}
           {#if p.marker}<span class="badge">-${p.marker}</span>{/if}
           {#each p.cuts as cutter, i (i)}<span class="badge">Cut: {name(cutter)}</span>{/each}
@@ -202,10 +203,31 @@
     </ul>
   {/if}
 
-  <footer>
-    <button class="ghost small-btn" onclick={() => session.leave()}>{isHost ? 'Close room' : 'Leave'}</button>
-    {#if !session.linked}<span class="warn small">Reconnecting…</span>{/if}
-  </footer>
+  {#if me}
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <section
+      class="mine"
+      class:turn={status(me) === 'Turn'}
+      class:busted={me.status === 'busted'}
+      class:pickable={pickablePlayers.includes(me.id)}
+      role={pickablePlayers.includes(me.id) ? 'button' : undefined}
+      tabindex={pickablePlayers.includes(me.id) ? 0 : undefined}
+      onclick={() => pickPlayer(me.id)}
+      onkeydown={(e) => e.key === 'Enter' && pickPlayer(me.id)}
+    >
+      <div class="me-bar">
+        <span class="name">{me.name}</span>
+        {#if status(me)}<span class="chip {status(me).toLowerCase()}">{status(me)}</span>{/if}
+        {#if me.status !== 'busted' && me.line.length}<span class="muted small">Scores ${scoreLine(me).total}</span>{/if}
+        {#if me.double}<span class="badge small">x2</span>{/if}
+        {#if me.marker}<span class="badge small">-${me.marker}</span>{/if}
+        {#each me.cuts as cutter, i (i)}<span class="badge small">Cut: {name(cutter)}</span>{/each}
+        <span class="bank">${me.bank}</span>
+      </div>
+      <Hand line={me.line} mine pickable={pickableCards} picked={pickedCards} onpick={pickCard} />
+    </section>
+  {/if}
+
 </main>
 
 {#if showRules}
@@ -215,6 +237,7 @@
 <style>
   main {
     max-width: 560px;
+    min-height: 100dvh;
     margin: 0 auto;
     padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
       max(12px, env(safe-area-inset-left));
@@ -230,6 +253,7 @@
   .round {
     color: var(--gold);
     font-size: 1.2rem;
+    white-space: nowrap;
   }
   header .small-btn {
     margin-left: auto;
@@ -241,9 +265,10 @@
     padding: 0.3rem 0.6rem;
     font-size: 0.85rem;
   }
+  /* Across the table: the others, side by side when there's room. */
   .seats {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.5rem;
   }
   .seat {
@@ -263,8 +288,31 @@
     outline: 3px dashed var(--gold);
     outline-offset: 2px;
   }
-  .seat.me {
-    background: var(--surface-2);
+  /* My seat: the bottom of the screen, my hand held up toward me. */
+  .mine {
+    margin-top: auto;
+    padding: 0.5rem 0.6rem 1rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+    background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
+    box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.06), var(--shadow);
+    border: 1px solid #2a4a2f;
+  }
+  .mine.turn {
+    border-color: var(--gold);
+  }
+  .mine.busted :global(.hand) {
+    opacity: 0.5;
+  }
+  .mine.pickable {
+    cursor: pointer;
+    outline: 3px dashed var(--gold);
+  }
+  .me-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.2rem;
   }
   .seat-head {
     display: flex;
@@ -406,10 +454,12 @@
     list-style: none;
     text-align: center;
   }
-  footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  .leave {
+    color: var(--muted);
+  }
+  .center {
+    margin: 0;
+    text-align: center;
   }
   .warn {
     color: var(--bad);

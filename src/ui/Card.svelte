@@ -31,7 +31,16 @@
   <span class="suit">{SUIT_SYMBOL[suit]}</span>
   {#if isAce}<span class="tag">A</span>{/if}
   {#if held.shoe}
-    <svg class="shoe" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3v7a6 6 0 0 0 12 0V3" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" /></svg>
+    <!-- A horseshoe: an iron arch, flared heels, nail holes. -->
+    <svg class="shoe" viewBox="0 0 24 24" aria-hidden="true"
+      ><path d="M4.5 3.5h4l-.6 8.2a4.1 4.1 0 0 0 8.2 0l-.6-8.2h4l.4 8.4a7.9 7.9 0 0 1-15.8 0z" fill="#5a4636" /><g fill="#f6ecd4"
+        ><circle cx="6.6" cy="7" r=".9" /><circle cx="6.9" cy="12.2" r=".9" /><circle cx="9.3" cy="16.9" r=".9" /><circle cx="17.4" cy="7" r=".9" /><circle
+          cx="17.1"
+          cy="12.2"
+          r=".9"
+        /><circle cx="14.7" cy="16.9" r=".9" /></g
+      ></svg
+    >
   {/if}
 </button>
 
@@ -46,7 +55,13 @@
     border: 2px solid var(--card-edge);
     background: var(--card-face);
     color: var(--ink);
-    box-shadow: 0 2px 4px rgb(0 0 0 / 0.35);
+    /* A little thickness: the card's edge, then its shadow on the table. */
+    box-shadow:
+      0 1px 0 #c9b791,
+      0 2px 0 #a8946c,
+      0 6px 10px rgb(0 0 0 / 0.45);
+    transform-style: preserve-3d;
+    animation: arrive 0.45s ease-out backwards;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -98,17 +113,35 @@
   }
   .shoe {
     position: absolute;
-    top: -6px;
-    left: -6px;
-    width: calc(var(--w) * 0.42);
-    height: calc(var(--w) * 0.42);
+    top: -7px;
+    left: -7px;
+    width: calc(var(--w) * 0.48);
+    height: calc(var(--w) * 0.48);
     padding: 2px;
     border-radius: 50%;
     background: var(--gold);
-    color: #3a2414;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
   }
   .ace {
     background: linear-gradient(160deg, #fff7e0, #f0d99a);
+  }
+  /* Turned face down, then over, as it lands. */
+  @keyframes arrive {
+    from {
+      transform: translateY(-18px) rotateY(-180deg);
+      opacity: 0.2;
+    }
+    60% {
+      opacity: 1;
+    }
+    to {
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card {
+      animation: none;
+    }
   }
   .pickable {
     cursor: pointer;
