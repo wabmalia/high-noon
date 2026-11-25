@@ -38,7 +38,7 @@
   <span class="rank">{label}</span>
   <span class="suit">{SUIT_SYMBOL[suit]}</span>
   {#if isAce && held.as}
-    <span class="scrawl {held.as.suit}" aria-hidden="true">{held.as.value}{SUIT_SYMBOL[held.as.suit]}</span>
+    <span class="scrawl {held.as.suit}" aria-hidden="true">{held.as.value}{held.as.suit === card.suit ? '' : SUIT_SYMBOL[held.as.suit]}</span>
   {/if}
   {#if held.shoe}
     <!-- A horseshoe: an iron arch, flared heels, nail holes. -->
