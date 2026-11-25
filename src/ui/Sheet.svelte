@@ -4,18 +4,25 @@
   // A decision or a summary over the table, without hiding it: a drawer from
   // the bottom on phones, only as tall as its content; a dialog in the middle
   // on wide screens. Title on top, its buttons at the bottom (under the thumb).
-  let { title, sub = '', top, children, actions }: { title: string; sub?: string; top?: Snippet; children: Snippet; actions?: Snippet } = $props();
+  let {
+    title,
+    sub = '',
+    tall = false,
+    top,
+    children,
+    actions,
+  }: { title: string; sub?: string; tall?: boolean; top?: Snippet; children: Snippet; actions?: Snippet } = $props();
 </script>
 
 <div class="scrim" aria-hidden="true"></div>
-<div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
+<div class="sheet" class:tall role="dialog" aria-modal="true" aria-label={title}>
   <span class="grip" aria-hidden="true"></span>
   <header>
-    <div>
+    <div class="title-row">
       <h2>{title}</h2>
-      {#if sub}<p class="muted small">{sub}</p>{/if}
+      {@render top?.()}
     </div>
-    {@render top?.()}
+    {#if sub}<p class="muted small">{sub}</p>{/if}
   </header>
   <div class="body">
     {@render children()}
@@ -50,6 +57,10 @@
     box-shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
     animation: up 0.2s ease-out;
   }
+  /* For long content (the bar): nearly the whole screen, so it doesn't scroll. */
+  .sheet.tall {
+    max-height: 94dvh;
+  }
   .grip {
     align-self: center;
     width: 2.6rem;
@@ -79,6 +90,9 @@
       border-bottom: 1px solid var(--border);
       animation: none;
     }
+    .sheet.tall {
+      max-height: 92dvh;
+    }
     .grip {
       display: none;
     }
@@ -92,11 +106,16 @@
     }
   }
   header {
+    margin-bottom: 0.5rem;
+  }
+  .title-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.6rem;
-    margin-bottom: 0.5rem;
+  }
+  .title-row :global(button) {
+    white-space: nowrap;
   }
   h2 {
     margin: 0;

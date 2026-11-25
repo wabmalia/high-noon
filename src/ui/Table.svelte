@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SUITS, SUIT_SYMBOL, type CardId, type Suit } from '../engine/cards';
-  import { BET, ITEMS, ITEM_NAME, PRICE, TARGET, targets, type GameState, type Item, type Player } from '../engine/game';
+  import { BET, ITEMS, ITEM_NAME, PRICE, spendable, TARGET, targets, type GameState, type Item, type Player } from '../engine/game';
   import { countingCards, handMoney, runBonus, SAME_SUIT_BONUS } from '../engine/score';
   import type { RoomView } from '../net/protocol';
   import { session } from '../net/session.svelte';
@@ -28,11 +28,11 @@
   // My bet this round, which only I know until the round ends.
   const myBet = $derived(session.myBet?.round === g.round ? session.myBet.on : undefined);
   // The engine's rules on what I can buy, with my own bet reserved.
+  const withMyBet = () => ({ ...g, bets: me && myBet !== undefined ? { [me.id]: myBet } : {} }) as unknown as GameState;
   function options(item: Item) {
-    if (!me) return null;
-    const bets = myBet !== undefined ? { [me.id]: myBet } : {};
-    return targets({ ...g, bets } as unknown as GameState, me, item);
+    return me ? targets(withMyBet(), me, item) : null;
   }
+  const canSpend = $derived(me ? spendable(withMyBet(), me) : 0);
 
   // Which sheet is up.
   const betting = $derived(g.phase === 'bet' && prompt?.kind === 'bet' && !!me && prompt.waiting.includes(me.id));
@@ -45,7 +45,10 @@
   let peek = $state(false);
   let pickedCards = $state<CardId[]>([]);
   $effect(() => {
-    if (prompt?.kind !== 'shop') chosen = null;
+    if (prompt?.kind !== 'shop') {
+      chosen = null;
+      peek = false;
+    }
     if (prompt?.kind !== 'target') pickedCards = [];
   });
   const picking = $derived(mine && prompt?.kind === 'target' ? prompt : null);
@@ -93,14 +96,18 @@
       <div class="seat panel" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'}>
         <div class="seat-head">
           <span class="name">{p.name}</span>
-          {#if !connected(p.id)}<span class="chip off">away</span>{/if}
-          {#if status(p) && status(p) !== 'Busted'}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
-          {#if p.double}<span class="badge">x2</span>{/if}
           <span class="spacer"></span>
-          <TaxChips cuts={p.cuts} {name} />
+          <Money {p} compact />
         </div>
+        {#if !connected(p.id) || (status(p) && status(p) !== 'Busted') || p.double || p.cuts.length}
+          <div class="seat-tags">
+            {#if !connected(p.id)}<span class="chip off">away</span>{/if}
+            {#if status(p) && status(p) !== 'Busted'}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
+            {#if p.double}<span class="badge">x2</span>{/if}
+            <TaxChips cuts={p.cuts} {name} />
+          </div>
+        {/if}
         <Hand line={p.line} />
-        <Money {p} />
       </div>
     {/each}
   </section>
@@ -206,9 +213,9 @@
       {/snippet}
     </Sheet>
   {:else}
-    <Sheet title="The bar" sub="Hand ${handMoney(me)} · Bank ${me.bank}">
+    <Sheet title="The bar" sub="${canSpend} to spend · hand ${handMoney(me)} + bank ${Math.max(0, canSpend - handMoney(me))}" tall>
       {#snippet top()}
-        <button class="small-btn" onclick={() => (peek = !peek)}>{peek ? 'Hide table' : 'Table'}</button>
+        <button class="small-btn" onclick={() => (peek = !peek)}>{peek ? 'Show bar' : 'Show table'}</button>
       {/snippet}
       {#if peek}
         {#each g.players as p (p.id)}
@@ -217,13 +224,14 @@
             <Hand line={p.line} />
           </div>
         {/each}
-      {/if}
+      {:else}
       {#each ITEMS as item (item)}
         <button class="item" class:sel={chosen === item} disabled={!options(item)} onclick={() => (chosen = chosen === item ? null : item)}>
           <span class="item-name">{ITEM_NAME[item]}</span><span class="price">${PRICE[item]}</span>
           <span class="item-text">{ITEM_TEXT[item]}</span>
         </button>
       {/each}
+      {/if}
       {#snippet actions()}
         <button onclick={() => session.act({ t: 'pass' })}>Skip</button>
         <button class="primary" disabled={!chosen} onclick={() => chosen && session.act({ t: 'buy', item: chosen })}>
@@ -350,6 +358,21 @@
   }
   .seat.busted {
     opacity: 0.55;
+  }
+  .seat-head .name {
+    min-width: 3.5rem;
+  }
+  .seat-head :global(.money) {
+    font-size: 0.82rem;
+  }
+  .seat-head :global(.money .bank) {
+    font-size: 0.92rem;
+  }
+  .seat-tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
   .seat-head,
   .me-bar,
@@ -488,8 +511,9 @@
     grid-template-columns: 1fr auto;
     column-gap: 0.5rem;
     text-align: left;
-    padding: 0.55rem 0.8rem;
-    font-size: 0.95rem;
+    padding: 0.32rem 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.25;
   }
   .item.sel .item-text,
   .item.sel .price {
@@ -497,7 +521,7 @@
   }
   .item-text {
     grid-column: 1 / -1;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 400;
     color: var(--muted);
   }

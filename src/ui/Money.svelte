@@ -2,8 +2,9 @@
   import type { Player } from '../engine/game';
   import { scoreLine } from '../engine/score';
 
-  // Bank, this round, and where it lands: $41 (+30 −3) → $68.
-  let { p }: { p: Player } = $props();
+  // Bank, this round, and where it lands: $41 (+30 −3) → $68. Compact (the
+  // other players' seats): $41 → $68.
+  let { p, compact = false }: { p: Player; compact?: boolean } = $props();
 
   const sc = $derived(scoreLine(p));
   const gross = $derived(sc.cards * (sc.double ? 2 : 1) + sc.bonus);
@@ -13,7 +14,7 @@
 <span class="money">
   <b class="bank">${p.bank}</b>
   {#if live}
-    <span class="muted">(+{gross}{sc.marker ? ` −${sc.marker}` : ''}) →</span>
+    <span class="muted">{compact ? '' : `(+${gross}${sc.marker ? ` −${sc.marker}` : ''}) `}→</span>
     <b class="proj">${p.bank + sc.total}</b>
   {:else if p.status === 'busted'}
     <span class="bust">busted</span>
@@ -24,7 +25,7 @@
   .money {
     display: inline-flex;
     align-items: baseline;
-    gap: 0.3rem;
+    gap: 0.25rem;
     white-space: nowrap;
     font-size: 0.9rem;
   }
