@@ -125,7 +125,14 @@
     <span class="western round">Round {g.round}</span>
     <span class="muted small goal">to ${TARGET}</span>
     <span class="spacer"></span>
-    <button class="menu-btn" onclick={() => (menu = true)} aria-label="Menu">☰</button>
+    <!-- The deck: where new cards fly from. -->
+    <div class="deck" bind:this={deckEl} title="{g.deckCount} cards left">
+      <span class="deck-card"></span><span class="deck-card"></span>
+      <b>{g.deckCount}</b>
+    </div>
+    <button class="menu-btn" onclick={() => (menu = true)} aria-label="Menu"
+      ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16" /></svg></button
+    >
   </header>
   {#if !session.linked}<p class="warn small center">Reconnecting…</p>{/if}
 
@@ -145,7 +152,7 @@
             <span class="spacer"></span>
             <Money {p} compact />
           </span>
-          <span class="seat-hand"><Hand line={p.line} toggle={false} /></span>
+          <span class="seat-hand"><Hand line={p.line} toggle={false} fresh={p.lastCard} /></span>
         </button>
       {/each}
     </section>
@@ -153,18 +160,7 @@
     {#if hiddenDown}<button class="more down" onclick={() => nudge(1)}>▾ {hiddenDown} more</button>{/if}
   </div>
 
-  <div class="middle">
-    <!-- The deck: where new cards fly from. -->
-    <div class="deck" bind:this={deckEl} title="{g.deckCount} cards left">
-      <span class="deck-card"></span><span class="deck-card"></span><span class="deck-card"></span>
-      <b>{g.deckCount}</b>
-    </div>
-    {#if g.log.length}
-      <ul class="log muted small" aria-live="polite">
-        {#each g.log.slice(-3) as line, i (i)}<li>{line}</li>{/each}
-      </ul>
-    {/if}
-  </div>
+  <div class="middle"></div>
 
   {#if me}
     <section class="mine" class:turn={status(me) === 'Turn'} class:busted={me.status === 'busted'}>
@@ -176,7 +172,7 @@
         <span class="spacer"></span>
         <Money p={me} />
       </div>
-      <Hand line={me.line} mine />
+      <Hand line={me.line} mine fresh={me.lastCard} />
     </section>
   {/if}
 
@@ -485,6 +481,7 @@
     bottom: 0.3rem;
   }
   .seat {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
@@ -514,10 +511,29 @@
   .seat-top :global(.money) {
     font-size: 0.8rem;
   }
+  /* Just the three bars, as tall as the deck beside it. */
   .menu-btn {
-    padding: 0.25rem 0.7rem;
-    font-size: 1.15rem;
-    line-height: 1.2;
+    padding: 0;
+    border: 0;
+    background: none;
+    width: 2.1rem;
+    height: 2.1rem;
+    color: var(--text);
+  }
+  .menu-btn:hover:not(:disabled) {
+    background: none;
+    color: var(--gold);
+  }
+  .menu-btn svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+  .me-bar .name {
+    flex: none;
   }
   .look-tags {
     display: flex;
@@ -584,16 +600,16 @@
   }
   .middle {
     flex: 1 0 auto;
-    min-height: 3.4rem;
-    gap: 0.8rem;
+    min-height: 1.4rem;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .deck {
     position: relative;
-    width: 2.2rem;
-    height: 3.08rem;
+    width: 1.5rem;
+    height: 2.1rem;
+    margin-right: 0.7rem;
     flex: none;
   }
   .deck-card {
@@ -605,32 +621,24 @@
       repeating-linear-gradient(45deg, rgb(224 168 60 / 0.35) 0 2px, transparent 2px 7px),
       repeating-linear-gradient(-45deg, rgb(224 168 60 / 0.35) 0 2px, transparent 2px 7px),
       #8e2b1f;
-    box-shadow: inset 0 0 0 3px #f6ecd4, 0 2px 3px rgb(0 0 0 / 0.4);
+    box-shadow: inset 0 0 0 2px #f6ecd4, 0 2px 3px rgb(0 0 0 / 0.4);
   }
   .deck-card:nth-child(2) {
     transform: translate(-2px, -2px);
   }
-  .deck-card:nth-child(3) {
-    transform: translate(-4px, -4px);
-  }
   .deck b {
     position: absolute;
-    right: -0.5rem;
-    bottom: -0.4rem;
-    padding: 0 0.35rem;
+    right: -0.65rem;
+    bottom: -0.35rem;
+    padding: 0 0.3rem;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     background: var(--gold);
     color: #2a1a0e;
   }
-  .log {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    text-align: center;
-  }
   /* My seat: my hand held up toward me, on the felt. */
   .mine {
+    position: relative;
     padding: 0.5rem 0.6rem 1.3rem;
     border-radius: var(--radius);
     background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);

@@ -33,6 +33,10 @@ export function previewRoom(me: string, screen: string, extra = 0): RoomView {
   d.bank = 22;
   b.cuts = [me];
   s.log = ['Doc stayed', 'You: Horseshoe'];
+  // Everyone's latest card, stamped NEW.
+  you.lastCard = you.line[3]?.card.id ?? null;
+  b.lastCard = b.line[1]?.card.id ?? null;
+  d.lastCard = d.line[0]?.card.id ?? null;
   s.turn = 0;
   if (screen === 'crowd' || screen === 'crowd-look') {
     const suits: Suit[] = ['star', 'cactus', 'horse', 'gold'];

@@ -72,8 +72,12 @@
     const frames: Keyframe[] = [
       // (No opacity changes in flight: anything below 1 flattens the 3D.)
       { transform: at(sx, sy, ss, 180, 0), offset: 0 },
-      // Up through the air, turning over.
-      { transform: at((sx + land.x) / 2, Math.min(sy, land.y) - 70, land.s * 0.8, 90, -14), offset: 0.25 },
+      // Through the air, turning over: an arc out to the side on its way down
+      // from the deck (or up, if the deck is below).
+      {
+        transform: at((sx + land.x) / 2 - vw * 0.18, sy < land.y ? (sy + land.y) / 2 - 20 : land.y - 70, land.s * 0.8, 90, -14),
+        offset: 0.25,
+      },
       // Lands, with a little bounce.
       { transform: at(land.x, land.y, land.s * 1.08, 0, 4), offset: 0.48 },
       { transform: at(land.x, land.y, land.s, 0, 0), offset: 0.56 },

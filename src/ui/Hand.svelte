@@ -11,6 +11,7 @@
     picked = [],
     counting = null,
     toggle = true,
+    fresh = null,
     onpick,
   }: {
     line: Held[];
@@ -21,6 +22,8 @@
     counting?: CardId[] | null;
     /** False: taps on a stack go to whatever is around the hand (a seat). */
     toggle?: boolean;
+    /** The latest card, stamped NEW. */
+    fresh?: CardId | null;
     onpick?: (id: CardId) => void;
   } = $props();
 
@@ -102,6 +105,7 @@
                 pickable={pickable.includes(h.card.id)}
                 picked={picked.includes(h.card.id)}
                 dim={counting !== null && !counting.includes(h.card.id)}
+                fresh={h.card.id === fresh}
                 onpick={() => onpick?.(h.card.id)}
               />
             {/each}

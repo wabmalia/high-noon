@@ -58,6 +58,8 @@ export interface Player {
   double: boolean;
   /** Who put a Sheriff's Cut on this player, one entry per cut. */
   cuts: PlayerId[];
+  /** The last card they got this round (stamped NEW). */
+  lastCard?: CardId | null;
 }
 
 export type Prompt =
@@ -179,7 +181,7 @@ function startRound(s: GameState) {
   s.round++;
   for (const p of s.players) {
     s.discard.push(...p.line.map((h) => h.card));
-    Object.assign(p, { status: 'active', line: [], marker: 0, double: false, cuts: [] });
+    Object.assign(p, { status: 'active', line: [], marker: 0, double: false, cuts: [], lastCard: null });
   }
   s.bets = {};
   s.results = null;
@@ -323,6 +325,7 @@ function step(s: GameState) {
   }
   const held: Held = { card };
   p.line.push(held);
+  p.lastCard = card.id;
   if (card.rank === ACE) {
     // The receiver picks what it stands for; the rest waits.
     s.prompt = { kind: 'ace', player: p.id, card: card.id };
@@ -524,6 +527,7 @@ function target(s: GameState, me: Player, prompt: Extract<Prompt, { kind: 'targe
   // Pickpocket: the card joins the thief's line. A stolen Ace is picked again.
   log(s, `${me.name}: Pickpocket from ${ownerA.name}`);
   me.line.push(heldA);
+  me.lastCard = heldA.card.id;
   if (heldA.card.rank === ACE) {
     delete heldA.as;
     s.prompt = { kind: 'ace', player: me.id, card: heldA.card.id };

@@ -9,8 +9,19 @@
     picked = false,
     dim = false,
     still = false,
+    fresh = false,
     onpick,
-  }: { held: Held; small?: boolean; pickable?: boolean; picked?: boolean; dim?: boolean; still?: boolean; onpick?: () => void } = $props();
+  }: {
+    held: Held;
+    small?: boolean;
+    pickable?: boolean;
+    picked?: boolean;
+    dim?: boolean;
+    still?: boolean;
+    /** The owner's latest card: a small NEW stamp in the corner. */
+    fresh?: boolean;
+    onpick?: () => void;
+  } = $props();
 
   const card: Card = $derived(held.card);
   const isAce = $derived(card.rank === ACE);
@@ -40,6 +51,7 @@
   {#if isAce && held.as}
     <span class="scrawl {held.as.suit}" aria-hidden="true">{held.as.value}{held.as.suit === card.suit ? '' : SUIT_SYMBOL[held.as.suit]}</span>
   {/if}
+  {#if fresh}<span class="new" aria-label="latest card">NEW</span>{/if}
   {#if held.shoe}
     <!-- A horseshoe: an iron arch, flared heels, nail holes. -->
     <svg class="shoe" viewBox="0 0 24 24" aria-hidden="true"
@@ -138,6 +150,24 @@
     transform: rotate(-14deg);
     text-shadow: 0 0 1px rgb(43 28 16 / 0.4);
     white-space: nowrap;
+  }
+  /* A rubber stamp in red ink, bottom middle: the latest card. (Not top
+     right, which the next card in a run can cover.) */
+  .new {
+    position: absolute;
+    bottom: 4%;
+    left: 50%;
+    translate: -50% 0;
+    padding: 0 0.18em;
+    border: 1.5px solid #b8322a;
+    border-radius: 3px;
+    font-size: max(7px, calc(var(--w) * 0.16));
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    color: #b8322a;
+    transform: rotate(-6deg);
+    opacity: 0.85;
   }
   .dim {
     filter: grayscale(0.7) brightness(0.65);
