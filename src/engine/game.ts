@@ -558,9 +558,11 @@ function endRound(s: GameState) {
   const income = new Map<PlayerId, number>(s.players.map((p) => [p.id, 0]));
   for (const p of s.players) {
     const total = scores.get(p.id)!.total;
-    // Sheriff's Cut: equal shares between the player and each cut on them.
+    // Sheriff's Cut: equal shares between the player and each cut on them,
+    // rounded down; the odd dollars stay with the player. A cutter collects
+    // even if they busted.
     const share = Math.floor(total / (p.cuts.length + 1));
-    kept.set(p.id, p.cuts.length ? share : total);
+    kept.set(p.id, total - share * p.cuts.length);
     for (const c of p.cuts) income.set(c, income.get(c)! + share);
   }
   const best = Math.max(...kept.values());

@@ -44,7 +44,8 @@ fair, and the "n copies of n" distribution of the original is gone.
 
 - An Ace is **wild**: when it arrives, its receiver picks the number
   (1 to 10) and the suit it stands for.
-- It scores **$0**: it's there to link runs, not for its value.
+- It scores **$1**, whatever it stands for. It keeps its own face, with
+  the picked number and suit written on it.
 - It counts as that number and suit for everything else: runs, same
   suit runs, and duplicates (picking a number you already hold busts
   you, unless that card has a Horseshoe).
@@ -118,7 +119,7 @@ cards plus $12, so $52.
 | **Card Sharp** | Swap | $12 | Swap two face-up cards between two different players (you can be one). |
 | **Shoot It Down** | Discard | $10 | Remove one face-up card from any line. |
 | **Double or Nothing** | (new) | $20 | Doubles your card points this round (not the bonuses). |
-| **Sheriff's Cut** | ÷2 | $15 | Put on another player: at the end of the round, what they earn is **split in equal shares** between them and each Sheriff's Cut on them: one cut, half each; two cuts, a third each; and so on. Shares round down. |
+| **Sheriff's Cut** | ÷2 | $15 | Put on another player: at the end of the round, what they earn is **split in equal shares** between them and each Sheriff's Cut on them: one cut, half each; two cuts, a third each; and so on. Shares round down; the odd dollars stay with the taxed player. |
 | **Horseshoe** | Lucky 13 | $3 | A sticker on one of your cards without one: you can receive that number once more without busting, and both copies score. The copy can get its own Horseshoe, so copies stack: three 8s score $24. |
 
 Notes:
@@ -141,8 +142,9 @@ In this order:
    A marker bigger than your score doesn't touch your bank, for now (a
    known loophole: weak hands can buy cheaply; watch it in the simulation).
 3. **Sheriff's Cut, last:** the result is split in equal shares between you
-   and each cutter (one cut: halves; two: thirds). Shares round down; any
-   leftover dollar goes to nobody.
+   and each cutter (one cut: halves; two: thirds). Shares round down; the
+   odd dollars stay with the taxed player. A cutter collects even if they
+   busted.
 4. Busted: $0, and nothing for the sheriff either.
 
 Example: 6-7-8-9-10, all hearts, Double or Nothing, a -$12 marker and one

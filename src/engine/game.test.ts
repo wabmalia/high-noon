@@ -106,7 +106,7 @@ describe('a round', () => {
     expect(player(s, 'a').bank).toBe(47);
   });
 
-  it("splits a Sheriff's Cut in equal shares, rounding down", () => {
+  it("splits a Sheriff's Cut in equal shares, the odd dollar to the taxed player", () => {
     let s = table({ a: [c(2), c(3)], b: [c(9), c(10)], c: [c(4)] }, { a: 30, c: 30 });
     s.deck.push({ id: 1, rank: 4, suit: 'cactus' });
     s = apply(s, 'a', { t: 'flip' });
@@ -117,7 +117,7 @@ describe('a round', () => {
     s.turn = 1;
     s = stayAll(s);
     const r = (id: string) => s.results!.find((x) => x.player === id)!;
-    expect(r('b').kept).toBe(9);
+    expect(r('b').kept).toBe(10);
     expect(r('a').cutIncome).toBe(9);
   });
 
@@ -134,6 +134,21 @@ describe('a round', () => {
     expect(player(s, 'b').line).toHaveLength(4);
     expect(player(s, 'a').marker).toBe(0);
     expect(player(s, 'a').bank).toBe(40);
+  });
+});
+
+describe("the Sheriff's Cut", () => {
+  it('keeps the odd dollar with the taxed player, and pays a busted cutter', () => {
+    // The playtest round: A holds 2, 5-6 and 9 with a $6 marker, cut by B, who busted.
+    let s = table({ a: [c(2), c(5), c(6), c(9)], b: [c(3)] });
+    player(s, 'a').marker = 6;
+    player(s, 'a').cuts = ['b'];
+    player(s, 'b').status = 'busted';
+    s = stayAll(s);
+    const r = (id: string) => s.results!.find((x) => x.player === id)!;
+    expect(r('a').score.total).toBe(5);
+    expect(r('a').kept).toBe(3);
+    expect(r('b').cutIncome).toBe(2);
   });
 });
 
