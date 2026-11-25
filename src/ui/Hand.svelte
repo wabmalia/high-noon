@@ -12,35 +12,56 @@
     onpick,
   }: { line: Held[]; mine?: boolean; pickable?: CardId[]; picked?: CardId[]; onpick?: (id: CardId) => void } = $props();
 
-  // Sorted by number, cut into groups of consecutive numbers: a run sits
-  // tight together (copies too), separate groups apart. An Ace still waiting
-  // for its pick goes on its own at the end.
+  // Sorted by number and cut into groups of consecutive numbers (a run sits
+  // tight together, separate groups apart). Inside a group, copies of the
+  // same number form a stack. An Ace still waiting for its pick goes on its
+  // own at the end.
   const groups = $derived.by(() => {
     const sorted = [...line].sort((a, b) => (valueOf(a) ?? 99) - (valueOf(b) ?? 99));
-    const out: Held[][] = [];
+    const out: Held[][][] = [];
     for (const h of sorted) {
       const v = valueOf(h);
-      const last = out[out.length - 1];
-      const lastV = last ? valueOf(last[last.length - 1]!) : null;
-      if (last && v !== null && lastV !== null && (v === lastV || v === lastV + 1)) last.push(h);
-      else out.push([h]);
+      const group = out[out.length - 1];
+      const stack = group?.[group.length - 1];
+      const lastV = stack ? valueOf(stack[0]!) : null;
+      if (stack && v !== null && v === lastV) stack.push(h);
+      else if (group && v !== null && lastV !== null && v === lastV + 1) group.push([h]);
+      else out.push([[h]]);
     }
     return out;
   });
 
-  // My hand stays one row, whatever its size: cards shrink to fit. In card
-  // widths: each group takes one card, each extra card in a run 0.62 of one
-  // (the rest overlaps), each gap between groups 0.27, plus room for the fan.
-  const OVERLAP = 0.38;
-  const GAP = 0.27;
-  const widths = $derived(groups.reduce((sum, grp) => sum + 1 + (grp.length - 1) * (1 - OVERLAP), 0) + Math.max(0, groups.length - 1) * GAP + 0.4);
+  // A stack opens (its copies spread) on hover, or on a tap until tapped
+  // again; and always while one of its cards can be picked.
+  let opened = $state<number[]>([]);
+  const keyOf = (stack: Held[]) => valueOf(stack[0]!) ?? -1;
+  const isOpen = (stack: Held[]) => opened.includes(keyOf(stack)) || stack.some((h) => pickable.includes(h.card.id));
+  function toggle(stack: Held[]) {
+    if (stack.length < 2 || stack.some((h) => pickable.includes(h.card.id))) return;
+    const k = keyOf(stack);
+    opened = opened.includes(k) ? opened.filter((x) => x !== k) : [...opened, k];
+  }
 
-  // My hand fans out a little: each card turned by its distance from the middle.
-  const count = $derived(line.length);
-  const fan = (group: number, i: number) => {
+  // My hand stays one row, whatever its size: cards shrink to fit. In card
+  // widths: a closed stack is one card plus a sliver per copy, an open one
+  // shows 0.62 of each copy; stacks in a run overlap by 0.38; groups have a
+  // 0.27 gap; plus room for the fan.
+  const OVERLAP = 0.38;
+  const PEEK = 0.2;
+  const GAP = 0.27;
+  const stackWidth = (s: Held[]) => 1 + (s.length - 1) * (isOpen(s) ? 1 - OVERLAP : PEEK);
+  const widths = $derived(
+    groups.reduce((sum, grp) => sum + grp.reduce((w, s) => w + stackWidth(s), 0) - (grp.length - 1) * OVERLAP, 0) +
+      Math.max(0, groups.length - 1) * GAP +
+      0.4,
+  );
+
+  // My hand fans out a little: each stack turned by its distance from the middle.
+  const stacks = $derived(groups.reduce((n, grp) => n + grp.length, 0));
+  const fan = (g: number, i: number) => {
     let index = i;
-    for (let g = 0; g < group; g++) index += groups[g]!.length;
-    const off = index - (count - 1) / 2;
+    for (let k = 0; k < g; k++) index += groups[k]!.length;
+    const off = index - (stacks - 1) / 2;
     return `--turn: ${off * 3}deg; --drop: ${Math.abs(off) * 3}px`;
   };
 </script>
@@ -49,15 +70,25 @@
   <div class="tilt" style={mine ? `--fit: ${widths}` : ''}>
     {#each groups as group, g (g)}
       <div class="group">
-        {#each group as h, i (h.card.id)}
-          <div class="slot" style={mine ? fan(g, i) : ''}>
-            <Card
-              held={h}
-              small={!mine}
-              pickable={pickable.includes(h.card.id)}
-              picked={picked.includes(h.card.id)}
-              onpick={() => onpick?.(h.card.id)}
-            />
+        {#each group as stack, i (stack[0]!.card.id)}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+          <div
+            class="stack"
+            class:open={isOpen(stack)}
+            class:many={stack.length > 1}
+            style={mine ? fan(g, i) : ''}
+            title={stack.length > 1 ? `${stack.length} copies` : undefined}
+            onclick={() => toggle(stack)}
+          >
+            {#each stack as h (h.card.id)}
+              <Card
+                held={h}
+                small={!mine}
+                pickable={pickable.includes(h.card.id)}
+                picked={picked.includes(h.card.id)}
+                onpick={() => onpick?.(h.card.id)}
+              />
+            {/each}
           </div>
         {/each}
       </div>
@@ -83,16 +114,37 @@
     display: flex;
     transform-style: flat;
   }
+  .stack {
+    display: flex;
+  }
+  .stack.many {
+    cursor: pointer;
+  }
+  /* Stacks in a run overlap; copies in a stack only peek out, until the
+     stack opens (hover, a tap, or picking a card from it). */
+  .group > .stack + .stack {
+    margin-left: calc(var(--w) * -0.38);
+  }
+  .stack > :global(.card + .card) {
+    margin-left: calc(var(--w) * -0.8);
+    transition: margin-left 0.18s ease-out;
+  }
+  .stack.open > :global(.card + .card) {
+    margin-left: calc(var(--w) * -0.38);
+  }
+  @media (hover: hover) {
+    .stack.many:hover > :global(.card + .card) {
+      margin-left: calc(var(--w) * -0.38);
+    }
+  }
 
   /* Theirs: lying on the table across from me, seen at an angle. */
   .theirs .tilt {
+    --w: 2.2rem;
     gap: 0.5rem;
     min-height: 2.6rem;
     transform: rotateX(32deg);
     transform-origin: bottom center;
-  }
-  .theirs .group :global(.slot + .slot) {
-    margin-left: -0.9rem;
   }
 
   /* Mine: big, held up toward me, fanned, always one row. The card width
@@ -111,15 +163,12 @@
     transform: rotateX(18deg);
     transform-origin: bottom center;
   }
-  .mine .slot {
+  .mine .stack {
     transform: rotate(var(--turn)) translateY(var(--drop));
     transform-origin: bottom center;
   }
-  .mine .slot :global(.card) {
+  .mine .stack :global(.card) {
     --w: inherit;
-  }
-  .mine .group :global(.slot + .slot) {
-    margin-left: calc(var(--w) * -0.38);
   }
   .empty {
     margin: 0;

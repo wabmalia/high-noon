@@ -71,9 +71,11 @@
     cursor: default;
     opacity: 1;
   }
+  /* Not pickable: let taps through to the stack around it (it opens). */
   .card:disabled {
     opacity: 1;
-    cursor: default;
+    cursor: inherit;
+    pointer-events: none;
   }
   .card.small {
     --w: 2.2rem;

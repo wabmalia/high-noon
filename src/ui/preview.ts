@@ -39,6 +39,14 @@ export function previewRoom(me: string, screen: string): RoomView {
     // Ten cards in short runs with copies: the widest hand.
     you.line = [c(1, 'gold', { as: { value: 1, suit: 'cactus' } }), c(2, 'star', { shoe: true }), c(2, 'horse'), c(4, 'cactus'), c(5, 'star', { shoe: true }), c(5, 'gold'), c(7, 'horse'), c(8, 'cactus'), c(10, 'star', { shoe: true }), c(10, 'gold')];
     s.prompt = { kind: 'turn', player: me };
+  } else if (screen === 'stack') {
+    // Three 7s and two 9s, stacked.
+    you.line = [c(6, 'star'), c(7, 'star', { shoe: true }), c(7, 'gold', { shoe: true }), c(7, 'cactus'), c(8, 'horse'), c(9, 'horse', { shoe: true }), c(9, 'star')];
+    s.prompt = { kind: 'turn', player: me };
+  } else if (screen === 'stackpick') {
+    // The same hand while picking a card of mine: every stack opens.
+    you.line = [c(6, 'star'), c(7, 'star', { shoe: true }), c(7, 'gold', { shoe: true }), c(7, 'cactus'), c(8, 'horse'), c(9, 'horse', { shoe: true }), c(9, 'star')];
+    s.prompt = { kind: 'target', player: me, item: 'shoot', picks: 'card', options: you.line.map((h) => h.card.id) };
   } else if (screen === 'bet') {
     s.phase = 'bet';
     for (const p of s.players) p.line = [];
