@@ -452,6 +452,7 @@ function buy(s: GameState, me: Player, item: Item) {
     pay(s, me, item);
     me.double = true;
     log(s, `${me.name}: Double or Nothing`);
+    s.prompt = null;
     s.ctx = 'item';
     return moveOn(s);
   }

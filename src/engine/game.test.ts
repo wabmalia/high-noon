@@ -96,6 +96,15 @@ describe('a round', () => {
     expect(t.prompt).toEqual({ kind: 'shop', player: 'a' });
   });
 
+  it('moves on after Double or Nothing (no target to pick)', () => {
+    let s = table({ a: [c(2)], b: [c(9)] }, { a: 50 });
+    s.deck.push({ id: 1, rank: 3, suit: 'cactus' });
+    s = apply(s, 'a', { t: 'flip' });
+    s = apply(s, 'a', { t: 'buy', item: 'double' });
+    expect(player(s, 'a').double).toBe(true);
+    expect(s.prompt).toEqual({ kind: 'turn', player: 'b' });
+  });
+
   it('pays with the hand first, then the bank', () => {
     let s = table({ a: [c(2)], b: [c(9)] }, { a: 50 });
     s.deck.push({ id: 1, rank: 3, suit: 'cactus' });
