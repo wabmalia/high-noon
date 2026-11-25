@@ -14,6 +14,8 @@ export function previewRoom(me: string, screen: string): RoomView {
     { id: 'b', name: 'Calamity' },
     { id: 'c', name: 'Doc' },
   ];
+  // A full table: six players, everyone holding a lot.
+  if (screen === 'crowd') members.push({ id: 'd', name: 'Wyatt' }, { id: 'e', name: 'Belle' }, { id: 'f', name: 'Jesse' });
   const s: GameState = createGame(members, { seed: 1 });
   s.phase = 'play';
   s.paused = false;
@@ -31,7 +33,17 @@ export function previewRoom(me: string, screen: string): RoomView {
   b.cuts = [me];
   s.log = ['Doc stayed', 'You: Horseshoe'];
   s.turn = 0;
-  if (screen === 'ten') {
+  if (screen === 'crowd') {
+    const suits: Suit[] = ['star', 'cactus', 'horse', 'gold'];
+    you.line = [1, 2, 2, 3, 5, 6, 7, 7, 9, 10].map((r, i) => c(r, suits[i % 4]!, r === 1 ? { as: { value: 4, suit: 'star' } } : i % 3 === 0 ? { shoe: true } : {}));
+    for (const [k, p] of s.players.slice(1).entries()) {
+      p.status = 'active';
+      p.cuts = k % 2 ? [me] : [];
+      p.double = k === 2;
+      p.line = [2, 3, 3, 4, 6, 7, 9, 10].map((r, i) => c(r, suits[(i + k) % 4]!, i === 2 ? { shoe: true } : {}));
+    }
+    s.prompt = { kind: 'turn', player: me };
+  } else if (screen === 'ten') {
     // Ten cards, one long run: A (as 1) to 10.
     you.line = [c(1, 'gold', { as: { value: 1, suit: 'star' } }), ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => c(r, 'star'))];
     s.prompt = { kind: 'turn', player: me };
