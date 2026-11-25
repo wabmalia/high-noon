@@ -507,7 +507,7 @@
     flex-wrap: wrap;
   }
   .look-hand {
-    padding: 0.4rem 0.2rem;
+    padding: 0.4rem 0.2rem 1rem;
     border-radius: 12px;
     background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
   }
@@ -578,7 +578,7 @@
   }
   /* My seat: my hand held up toward me, on the felt. */
   .mine {
-    padding: 0.5rem 0.6rem 0.8rem;
+    padding: 0.5rem 0.6rem 1.3rem;
     border-radius: var(--radius);
     background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
     box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.06), var(--shadow);
