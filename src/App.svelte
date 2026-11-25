@@ -9,7 +9,14 @@
   onMount(() => session.restore());
 
   // Dev only: #/preview/<screen> (see ui/preview.ts).
-  const preview = import.meta.env.DEV && location.hash.startsWith('#/preview') ? previewRoom(session.me, location.hash.split('/')[2] ?? '') : null;
+  const screen = location.hash.split('/')[2] ?? '';
+  const previewing = import.meta.env.DEV && location.hash.startsWith('#/preview');
+  let preview = $state(previewing ? previewRoom(session.me, screen) : null);
+  // #/preview/<screen>/fly: a card arrives for me, then one for Calamity.
+  if (previewing && location.hash.endsWith('/fly')) {
+    setTimeout(() => (preview = previewRoom(session.me, screen, 1)), 700);
+    setTimeout(() => (preview = previewRoom(session.me, screen, 2)), 2600);
+  }
 </script>
 
 {#if preview}

@@ -4,6 +4,7 @@
   import { countingCards, handMoney, runBonus, SAME_SUIT_BONUS } from '../engine/score';
   import type { RoomView } from '../net/protocol';
   import { session } from '../net/session.svelte';
+  import Flights from './Flights.svelte';
   import Hand from './Hand.svelte';
   import { ITEM_TEXT } from './items';
   import Money from './Money.svelte';
@@ -37,7 +38,12 @@
   // Which sheet is up.
   const betting = $derived(g.phase === 'bet' && prompt?.kind === 'bet' && !!me && prompt.waiting.includes(me.id));
   const acing = $derived(mine && prompt?.kind === 'ace');
-  const shopping = $derived(mine && (prompt?.kind === 'shop' || prompt?.kind === 'target'));
+  // After a flip the bar waits until I open it, so I can see what I got.
+  let barOpen = $state(false);
+  $effect(() => {
+    if (!(mine && (prompt?.kind === 'shop' || prompt?.kind === 'target'))) barOpen = false;
+  });
+  const shopping = $derived(mine && ((prompt?.kind === 'shop' && barOpen) || prompt?.kind === 'target'));
   const summary = $derived(!!g.results && (g.phase === 'roundOver' || g.phase === 'gameOver'));
 
   // The bar: pick an item, then Buy; then its target, in the same sheet.
@@ -99,6 +105,9 @@
   }
   const nudge = (dir: 1 | -1) => seatsEl?.scrollBy({ top: dir * seatsEl.clientHeight * 0.8, behavior: 'smooth' });
 
+  let tableEl = $state<HTMLElement | null>(null);
+  let deckEl = $state<HTMLElement | null>(null);
+
   let menu = $state(import.meta.env.DEV && location.hash.endsWith('/menu'));
   $effect(() => {
     void others.length;
@@ -111,10 +120,10 @@
   });
 </script>
 
-<main>
+<main bind:this={tableEl}>
   <header>
     <span class="western round">Round {g.round}</span>
-    <span class="muted small goal">to ${TARGET} · {g.deckCount} left</span>
+    <span class="muted small goal">to ${TARGET}</span>
     <span class="spacer"></span>
     <button class="menu-btn" onclick={() => (menu = true)} aria-label="Menu">☰</button>
   </header>
@@ -145,6 +154,11 @@
   </div>
 
   <div class="middle">
+    <!-- The deck: where new cards fly from. -->
+    <div class="deck" bind:this={deckEl} title="{g.deckCount} cards left">
+      <span class="deck-card"></span><span class="deck-card"></span><span class="deck-card"></span>
+      <b>{g.deckCount}</b>
+    </div>
     {#if g.log.length}
       <ul class="log muted small" aria-live="polite">
         {#each g.log.slice(-3) as line, i (i)}<li>{line}</li>{/each}
@@ -171,6 +185,9 @@
     {#if g.phase === 'play' && mine && prompt?.kind === 'turn'}
       <button class="big" onclick={() => session.act({ t: 'stay' })}>Stay</button>
       <button class="primary big" onclick={() => session.act({ t: 'flip' })}>Flip</button>
+    {:else if g.phase === 'play' && mine && prompt?.kind === 'shop'}
+      <button class="big" onclick={() => session.act({ t: 'pass' })}>Pass</button>
+      <button class="primary big" onclick={() => (barOpen = true)}>Open bar</button>
     {:else}
       <p class="muted status">
         {#if g.phase === 'bet'}Bets are in…{myBet ? ` You backed ${name(myBet)}.` : ''}
@@ -181,6 +198,8 @@
     {/if}
   </nav>
 </main>
+
+<Flights players={g.players} table={tableEl} deck={deckEl} />
 
 {#if betting}
   <Sheet title="The Bet!" sub="${BET} on who wins this round.">
@@ -265,7 +284,7 @@
       {/each}
       {/if}
       {#snippet actions()}
-        <button onclick={() => session.act({ t: 'pass' })}>Skip</button>
+        <button onclick={() => (barOpen = false)}>Back</button>
         <button class="primary" disabled={!chosen} onclick={() => chosen && session.act({ t: 'buy', item: chosen })}>
           {chosen ? `Buy · $${PRICE[chosen]}` : 'Buy'}
         </button>
@@ -565,10 +584,44 @@
   }
   .middle {
     flex: 1 0 auto;
-    min-height: 1.2rem;
+    min-height: 3.4rem;
+    gap: 0.8rem;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  .deck {
+    position: relative;
+    width: 2.2rem;
+    height: 3.08rem;
+    flex: none;
+  }
+  .deck-card {
+    position: absolute;
+    inset: 0;
+    border-radius: 5px;
+    border: 1.5px solid var(--card-edge);
+    background:
+      repeating-linear-gradient(45deg, rgb(224 168 60 / 0.35) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(-45deg, rgb(224 168 60 / 0.35) 0 2px, transparent 2px 7px),
+      #8e2b1f;
+    box-shadow: inset 0 0 0 3px #f6ecd4, 0 2px 3px rgb(0 0 0 / 0.4);
+  }
+  .deck-card:nth-child(2) {
+    transform: translate(-2px, -2px);
+  }
+  .deck-card:nth-child(3) {
+    transform: translate(-4px, -4px);
+  }
+  .deck b {
+    position: absolute;
+    right: -0.5rem;
+    bottom: -0.4rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    background: var(--gold);
+    color: #2a1a0e;
   }
   .log {
     margin: 0;

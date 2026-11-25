@@ -8,8 +8,9 @@
     pickable = false,
     picked = false,
     dim = false,
+    still = false,
     onpick,
-  }: { held: Held; small?: boolean; pickable?: boolean; picked?: boolean; dim?: boolean; onpick?: () => void } = $props();
+  }: { held: Held; small?: boolean; pickable?: boolean; picked?: boolean; dim?: boolean; still?: boolean; onpick?: () => void } = $props();
 
   const card: Card = $derived(held.card);
   const isAce = $derived(card.rank === ACE);
@@ -28,6 +29,8 @@
   class:picked
   class:ace={isAce}
   class:dim
+  class:still
+  data-card={card.id}
   role={pickable ? undefined : 'img'}
   onclick={pickable ? onpick : undefined}
   aria-label="{label} {suit}{isAce && held.as ? `, as ${held.as.value} ${held.as.suit}` : ''}{held.shoe ? ', horseshoe' : ''}"
@@ -170,6 +173,9 @@
     .card {
       animation: none;
     }
+  }
+  .card.still {
+    animation: none;
   }
   .pickable {
     cursor: pointer;

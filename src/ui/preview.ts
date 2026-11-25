@@ -8,7 +8,8 @@ import type { RoomView } from '../net/protocol';
 let id = 500;
 const c = (rank: number, suit: Suit, extra: Partial<Held> = {}): Held => ({ card: { id: id++, rank, suit } as Card, ...extra });
 
-export function previewRoom(me: string, screen: string): RoomView {
+export function previewRoom(me: string, screen: string, extra = 0): RoomView {
+  id = 500; // the same ids every time, so a later call only adds new cards
   const members = [
     { id: me, name: 'You' },
     { id: 'b', name: 'Calamity' },
@@ -85,5 +86,8 @@ export function previewRoom(me: string, screen: string): RoomView {
   } else {
     s.prompt = { kind: 'shop', player: me };
   }
+  // Cards arriving after the first look (#/preview/<screen>/fly).
+  if (extra >= 1) you.line.push(c(5, 'horse'));
+  if (extra >= 2) b.line.push(c(8, 'gold'));
   return { code: 'NOON1', hostId: me, members: members.map((m) => ({ ...m, connected: true })), game: publicView(s) };
 }
