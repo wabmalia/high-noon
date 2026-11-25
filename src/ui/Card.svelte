@@ -18,15 +18,18 @@
   const label = $derived(rankLabel(card.rank));
 </script>
 
-<button
+<!-- A button only when it can be picked; otherwise a plain card, so a tap
+     reaches the stack or the seat around it, and hovering still works. -->
+<svelte:element
+  this={pickable ? 'button' : 'div'}
   class="card {suit}"
   class:small
   class:pickable
   class:picked
   class:ace={isAce}
   class:dim
-  disabled={!pickable}
-  onclick={onpick}
+  role={pickable ? undefined : 'img'}
+  onclick={pickable ? onpick : undefined}
   aria-label="{label} {suit}{isAce && held.as ? `, as ${held.as.value} ${held.as.suit}` : ''}{held.shoe ? ', horseshoe' : ''}"
 >
   <span class="rank">{label}</span>
@@ -46,7 +49,7 @@
       ></svg
     >
   {/if}
-</button>
+</svelte:element>
 
 <style>
   .card {
@@ -75,11 +78,23 @@
     cursor: default;
     opacity: 1;
   }
-  /* Not pickable: let taps through to the stack around it (it opens). */
-  .card:disabled {
-    opacity: 1;
+  div.card {
     cursor: inherit;
-    pointer-events: none;
+  }
+  /* A card under the pointer lifts out of its hand (desktop). */
+  @media (hover: hover) {
+    .card:hover {
+      z-index: 3;
+      translate: 0 -10%;
+      scale: 1.12;
+      box-shadow:
+        0 1px 0 #c9b791,
+        0 2px 0 #a8946c,
+        0 12px 18px rgb(0 0 0 / 0.55);
+      transition:
+        translate 0.12s ease-out,
+        scale 0.12s ease-out;
+    }
   }
   .card.small {
     --w: 2.2rem;

@@ -79,6 +79,30 @@
   const toggle = (id: string) => (expanded = expanded.includes(id) ? expanded.filter((x) => x !== id) : [...expanded, id]);
 
   let showRules = $state(false);
+
+  // A closer look at another player's cards.
+  // (Dev previews ending in /look start looking at the first other player.)
+  let looking = $state<string | null>(import.meta.env.DEV && location.hash.endsWith('/look') ? 'b' : null);
+
+  // Scroll shadows on the seats: is there more above or below?
+  let seatsEl = $state<HTMLElement | null>(null);
+  let atTop = $state(true);
+  let atBottom = $state(true);
+  function edges() {
+    const el = seatsEl;
+    if (!el) return;
+    atTop = el.scrollTop <= 1;
+    atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+  }
+  $effect(() => {
+    void others.length;
+    void g;
+    if (!seatsEl) return;
+    const ro = new ResizeObserver(edges);
+    ro.observe(seatsEl);
+    edges();
+    return () => ro.disconnect();
+  });
 </script>
 
 <main>
@@ -91,24 +115,24 @@
   </header>
   {#if !session.linked}<p class="warn small center">Reconnecting…</p>{/if}
 
-  <section class="seats">
+  <!-- The others, one row each. If they don't all fit, this part scrolls,
+       with a shadow at the edge where more is hidden. Tap a row for a closer
+       look. -->
+  <section class="seats" class:more-up={!atTop} class:more-down={!atBottom} bind:this={seatsEl} onscroll={edges}>
     {#each others as p (p.id)}
-      <div class="seat panel" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'}>
-        <div class="seat-head">
+      <button class="seat" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'} onclick={() => (looking = p.id)}>
+        <span class="seat-who">
           <span class="name">{p.name}</span>
-          <span class="spacer"></span>
-          <Money {p} compact />
-        </div>
-        {#if !connected(p.id) || (status(p) && status(p) !== 'Busted') || p.double || p.cuts.length}
-          <div class="seat-tags">
+          <span class="seat-tags">
             {#if !connected(p.id)}<span class="chip off">away</span>{/if}
-            {#if status(p) && status(p) !== 'Busted'}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
+            {#if status(p)}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
             {#if p.double}<span class="badge">x2</span>{/if}
             <TaxChips cuts={p.cuts} {name} />
-          </div>
-        {/if}
-        <Hand line={p.line} />
-      </div>
+          </span>
+        </span>
+        <span class="seat-hand"><Hand line={p.line} toggle={false} /></span>
+        <span class="seat-money"><Money {p} compact /></span>
+      </button>
     {/each}
   </section>
 
@@ -293,14 +317,31 @@
   </Sheet>
 {/if}
 
+{#if looking && !betting && !acing && !shopping && !summary}
+  {@const p = player(looking)}
+  <Sheet title={p.name}>
+    {#snippet top()}<Money {p} />{/snippet}
+    <div class="look-tags">
+      {#if status(p)}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
+      {#if p.double}<span class="badge">x2</span>{/if}
+      {#if p.cuts.length}<TaxChips cuts={p.cuts} {name} /><span class="muted small">Tax to {p.cuts.map(name).join(', ')}</span>{/if}
+    </div>
+    <div class="look-hand"><Hand line={p.line} mine /></div>
+    {#snippet actions()}
+      <button onclick={() => (looking = null)}>Close</button>
+    {/snippet}
+  </Sheet>
+{/if}
+
 {#if showRules}
   <RulesSheet onclose={() => (showRules = false)} />
 {/if}
 
 <style>
+  /* The screen and no more: the seats scroll, my hand and the move stay put. */
   main {
     max-width: 560px;
-    min-height: 100dvh;
+    height: 100dvh;
     margin: 0 auto;
     padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
       max(12px, env(safe-area-inset-left));
@@ -341,17 +382,39 @@
   .warn {
     color: var(--bad);
   }
-  /* Across the table: the others, side by side when there's room. */
+  /* Across the table: the others, one row each, scrolling if needed. */
   .seats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.5rem;
-  }
-  .seat {
-    padding: 0.5rem 0.7rem;
+    position: relative;
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    /* Shadows inside the edges where more players are hidden. */
+    --shade-up: 0;
+    --shade-down: 0;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / calc(1 - var(--shade-up))) 0, #000 1.6rem, #000 calc(100% - 1.6rem), rgb(0 0 0 / calc(1 - var(--shade-down))) 100%);
+  }
+  .seats.more-up {
+    --shade-up: 0.85;
+  }
+  .seats.more-down {
+    --shade-down: 0.85;
+  }
+  .seat {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, 7.5rem) 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.6rem;
+    text-align: left;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    flex: none;
   }
   .seat.turn {
     border-color: var(--gold);
@@ -359,20 +422,47 @@
   .seat.busted {
     opacity: 0.55;
   }
-  .seat-head .name {
-    min-width: 3.5rem;
+  .seat-who {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
   }
-  .seat-head :global(.money) {
-    font-size: 0.82rem;
+  .seat-hand {
+    min-width: 0;
   }
-  .seat-head :global(.money .bank) {
-    font-size: 0.92rem;
+  .seat-money :global(.money) {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+    font-size: 0.78rem;
+  }
+  .seat-money :global(.money .bank) {
+    font-size: 0.95rem;
+  }
+  .look-tags {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .look-hand {
+    padding: 0.4rem 0.2rem;
+    border-radius: 12px;
+    background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
   }
   .seat-tags {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.25rem;
+  }
+  .seat-tags:empty {
+    display: none;
+  }
+  .seat-tags :global(.chips) {
+    transform: scale(0.8);
+    transform-origin: left center;
   }
   .seat-head,
   .me-bar,
@@ -414,7 +504,8 @@
     color: #2a1a0e;
   }
   .middle {
-    flex: 1;
+    flex: 1 0 auto;
+    min-height: 1.2rem;
     display: flex;
     align-items: center;
     justify-content: center;

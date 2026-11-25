@@ -15,7 +15,7 @@ export function previewRoom(me: string, screen: string): RoomView {
     { id: 'c', name: 'Doc' },
   ];
   // A full table: six players, everyone holding a lot.
-  if (screen === 'crowd') members.push({ id: 'd', name: 'Wyatt' }, { id: 'e', name: 'Belle' }, { id: 'f', name: 'Jesse' });
+  if (screen === 'crowd' || screen === 'crowd-look') members.push({ id: 'd', name: 'Wyatt' }, { id: 'e', name: 'Belle' }, { id: 'f', name: 'Jesse' });
   const s: GameState = createGame(members, { seed: 1 });
   s.phase = 'play';
   s.paused = false;
@@ -33,7 +33,7 @@ export function previewRoom(me: string, screen: string): RoomView {
   b.cuts = [me];
   s.log = ['Doc stayed', 'You: Horseshoe'];
   s.turn = 0;
-  if (screen === 'crowd') {
+  if (screen === 'crowd' || screen === 'crowd-look') {
     const suits: Suit[] = ['star', 'cactus', 'horse', 'gold'];
     you.line = [1, 2, 2, 3, 5, 6, 7, 7, 9, 10].map((r, i) => c(r, suits[i % 4]!, r === 1 ? { as: { value: 4, suit: 'star' } } : i % 3 === 0 ? { shoe: true } : {}));
     for (const [k, p] of s.players.slice(1).entries()) {

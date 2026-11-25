@@ -14,8 +14,10 @@
 <span class="money">
   <b class="bank">${p.bank}</b>
   {#if live}
-    <span class="muted">{compact ? '' : `(+${gross}${sc.marker ? ` −${sc.marker}` : ''}) `}→</span>
-    <b class="proj">${p.bank + sc.total}</b>
+    <span class="to">
+      <span class="muted">{compact ? '' : `(+${gross}${sc.marker ? ` −${sc.marker}` : ''}) `}→</span>
+      <b class="proj">${p.bank + sc.total}</b>
+    </span>
   {:else if p.status === 'busted'}
     <span class="bust">busted</span>
   {/if}
@@ -36,6 +38,11 @@
   }
   .bank {
     font-size: 1.05rem;
+  }
+  .to {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
   }
   .bust {
     color: var(--bad);

@@ -10,6 +10,7 @@
     pickable = [],
     picked = [],
     counting = null,
+    toggle = true,
     onpick,
   }: {
     line: Held[];
@@ -18,6 +19,8 @@
     picked?: CardId[];
     /** If set, cards not in it are dimmed: what scored in a round summary. */
     counting?: CardId[] | null;
+    /** False: taps on a stack go to whatever is around the hand (a seat). */
+    toggle?: boolean;
     onpick?: (id: CardId) => void;
   } = $props();
 
@@ -45,8 +48,8 @@
   let opened = $state<number[]>([]);
   const keyOf = (stack: Held[]) => valueOf(stack[0]!) ?? -1;
   const isOpen = (stack: Held[]) => opened.includes(keyOf(stack)) || stack.some((h) => pickable.includes(h.card.id));
-  function toggle(stack: Held[]) {
-    if (stack.length < 2 || stack.some((h) => pickable.includes(h.card.id))) return;
+  function open(stack: Held[]) {
+    if (!toggle || stack.length < 2 || stack.some((h) => pickable.includes(h.card.id))) return;
     const k = keyOf(stack);
     opened = opened.includes(k) ? opened.filter((x) => x !== k) : [...opened, k];
   }
@@ -62,7 +65,7 @@
   const widths = $derived(
     groups.reduce((sum, grp) => sum + grp.reduce((w, s) => w + stackWidth(s), 0) - (grp.length - 1) * OVERLAP, 0) +
       Math.max(0, groups.length - 1) * GAP +
-      0.4,
+      (mine ? 0.4 : 0.1),
   );
 
   // My hand fans out a little: each stack turned by its distance from the middle.
@@ -76,7 +79,7 @@
 </script>
 
 <div class="hand" class:mine class:theirs={!mine}>
-  <div class="tilt" style={mine ? `--fit: ${widths}` : ''}>
+  <div class="tilt" style="--fit: {widths}">
     {#each groups as group, g (g)}
       <div class="group">
         {#each group as stack, i (stack[0]!.card.id)}
@@ -87,7 +90,10 @@
             class:many={stack.length > 1}
             style={mine ? fan(g, i) : ''}
             title={stack.length > 1 ? `${stack.length} copies` : undefined}
-            onclick={() => toggle(stack)}
+            onclick={(e) => {
+              if (toggle && stack.length > 1) e.stopPropagation();
+              open(stack);
+            }}
           >
             {#each stack as h (h.card.id)}
               <Card
@@ -148,13 +154,21 @@
     }
   }
 
-  /* Theirs: lying on the table across from me, seen at an angle. */
+  /* Theirs: lying on the table across from me, seen at an angle; one row,
+     shrinking to fit like mine. */
+  .theirs {
+    container-type: inline-size;
+  }
   .theirs .tilt {
-    --w: 2.2rem;
-    gap: 0.5rem;
-    min-height: 2.6rem;
-    transform: rotateX(32deg);
+    --w: min(2.2rem, calc(100cqw / var(--fit)));
+    flex-wrap: nowrap;
+    gap: calc(var(--w) * 0.27);
+    min-height: calc(var(--w) * 1.4 + 0.2rem);
+    transform: rotateX(28deg);
     transform-origin: bottom center;
+  }
+  .theirs .tilt .stack :global(.card.small) {
+    --w: inherit;
   }
 
   /* Mine: big, held up toward me, fanned, always one row. The card width
