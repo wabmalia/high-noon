@@ -7,14 +7,15 @@
     small = false,
     pickable = false,
     picked = false,
+    dim = false,
     onpick,
-  }: { held: Held; small?: boolean; pickable?: boolean; picked?: boolean; onpick?: () => void } = $props();
+  }: { held: Held; small?: boolean; pickable?: boolean; picked?: boolean; dim?: boolean; onpick?: () => void } = $props();
 
   const card: Card = $derived(held.card);
   const isAce = $derived(card.rank === ACE);
-  // An Ace shows what it stands for once picked.
-  const suit = $derived(isAce && held.as ? held.as.suit : card.suit);
-  const label = $derived(isAce ? (held.as ? String(held.as.value) : 'A') : rankLabel(card.rank));
+  // An Ace always looks like itself; what it stands for is scrawled on it.
+  const suit = $derived(card.suit);
+  const label = $derived(rankLabel(card.rank));
 </script>
 
 <button
@@ -23,13 +24,16 @@
   class:pickable
   class:picked
   class:ace={isAce}
+  class:dim
   disabled={!pickable}
   onclick={onpick}
-  aria-label="{isAce ? 'Ace as ' : ''}{label} {suit}{held.shoe ? ', horseshoe' : ''}"
+  aria-label="{label} {suit}{isAce && held.as ? `, as ${held.as.value} ${held.as.suit}` : ''}{held.shoe ? ', horseshoe' : ''}"
 >
   <span class="rank">{label}</span>
   <span class="suit">{SUIT_SYMBOL[suit]}</span>
-  {#if isAce}<span class="tag">A</span>{/if}
+  {#if isAce && held.as}
+    <span class="scrawl {held.as.suit}" aria-hidden="true">{held.as.value}{SUIT_SYMBOL[held.as.suit]}</span>
+  {/if}
   {#if held.shoe}
     <!-- A horseshoe: an iron arch, flared heels, nail holes. -->
     <svg class="shoe" viewBox="0 0 24 24" aria-hidden="true"
@@ -103,15 +107,22 @@
     font-size: calc(var(--w) * 0.3);
     line-height: 1;
   }
-  /* Bottom left and top left: the parts of a card still showing when the
-     next card in a run overlaps its right side. */
-  .tag {
+  /* What an Ace stands for, written on it in rough pencil, on the left
+     where it still shows inside a run. */
+  .scrawl {
     position: absolute;
-    bottom: 2px;
-    left: 4px;
-    font-size: calc(var(--w) * 0.2);
-    font-weight: 800;
-    color: var(--card-edge);
+    left: 6%;
+    bottom: 4%;
+    font-family: 'Permanent Marker', 'Rye', cursive;
+    font-size: calc(var(--w) * 0.36);
+    line-height: 1;
+    color: #2b1c10;
+    transform: rotate(-14deg);
+    text-shadow: 0 0 1px rgb(43 28 16 / 0.4);
+    white-space: nowrap;
+  }
+  .dim {
+    filter: grayscale(0.7) brightness(0.65);
   }
   .shoe {
     position: absolute;

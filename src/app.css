@@ -82,9 +82,9 @@ button.primary:hover:not(:disabled) {
   filter: brightness(1.08);
   background: var(--accent);
 }
+/* Still a button: outlined, so it never reads as plain text. */
 button.ghost {
   background: transparent;
-  border-color: transparent;
 }
 button:focus-visible,
 input:focus-visible {

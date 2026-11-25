@@ -9,8 +9,17 @@
     mine = false,
     pickable = [],
     picked = [],
+    counting = null,
     onpick,
-  }: { line: Held[]; mine?: boolean; pickable?: CardId[]; picked?: CardId[]; onpick?: (id: CardId) => void } = $props();
+  }: {
+    line: Held[];
+    mine?: boolean;
+    pickable?: CardId[];
+    picked?: CardId[];
+    /** If set, cards not in it are dimmed: what scored in a round summary. */
+    counting?: CardId[] | null;
+    onpick?: (id: CardId) => void;
+  } = $props();
 
   // Sorted by number and cut into groups of consecutive numbers (a run sits
   // tight together, separate groups apart). Inside a group, copies of the
@@ -86,6 +95,7 @@
                 small={!mine}
                 pickable={pickable.includes(h.card.id)}
                 picked={picked.includes(h.card.id)}
+                dim={counting !== null && !counting.includes(h.card.id)}
                 onpick={() => onpick?.(h.card.id)}
               />
             {/each}

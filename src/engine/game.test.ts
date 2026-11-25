@@ -64,8 +64,10 @@ describe('scoring', () => {
     const p = line([c(6), c(7), c(8, 'cactus'), c(9), c(10)], { double: true, marker: 12 });
     expect(scoreLine(p).total).toBe(80 + 12 - 12);
   });
-  it('scores an Ace as $0 but lets it link a run', () => {
-    expect(scoreLine(line([c(6), c(7), ace(8), c(9), c(10)])).total).toBe(32 + 12 + 10);
+  it('scores an Ace as $1, whatever it stands for, and lets it link a run', () => {
+    expect(scoreLine(line([c(6), c(7), ace(8), c(9), c(10)])).total).toBe(33 + 12 + 10);
+    // The playtest hand: A (as 1), 2, 3, 4 with a $10 marker.
+    expect(scoreLine(line([ace(1, 'cactus'), c(2, 'cactus'), c(3, 'cactus'), c(4, 'cactus')], { marker: 10 })).total).toBe(10 + 7 - 10);
   });
   it('never goes below zero, and a bust scores nothing', () => {
     expect(scoreLine(line([c(2), c(3)], { marker: 20 })).total).toBe(0);
@@ -119,15 +121,19 @@ describe('a round', () => {
     expect(r('a').cutIncome).toBe(9);
   });
 
-  it('refunds the Roulette buyer when the target survives all three cards', () => {
+  it('refunds the Roulette buyer the way they paid, when the target survives all three cards', () => {
     let s = table({ a: [c(2)], b: [c(9)] }, { a: 40 });
     s.deck.push({ id: 4, rank: 6, suit: 'gold' }, { id: 3, rank: 5, suit: 'gold' }, { id: 2, rank: 4, suit: 'gold' }, { id: 1, rank: 3, suit: 'gold' });
     s = apply(s, 'a', { t: 'flip' });
     s = apply(s, 'a', { t: 'buy', item: 'roulette' });
     s = apply(s, 'a', { t: 'player', target: 'b' });
+    // Paid $5 from the hand (2 + 3) as a marker, $5 from the bank.
+    expect(player(s, 'a').marker).toBe(5);
+    expect(player(s, 'a').bank).toBe(35);
     while (s.paused) s = advance(s);
     expect(player(s, 'b').line).toHaveLength(4);
-    expect(player(s, 'a').bank).toBe(40 - 5 + 10);
+    expect(player(s, 'a').marker).toBe(0);
+    expect(player(s, 'a').bank).toBe(40);
   });
 });
 

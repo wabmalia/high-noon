@@ -9,9 +9,10 @@ export function valueOf(h: Held): number | null {
 export function suitOf(h: Held): Suit {
   return h.card.rank === ACE && h.as ? h.as.suit : h.card.suit;
 }
-/** What a card scores and pays with: its number, but an Ace is worth $0. */
+/** What a card scores and pays with: its number. An Ace is always worth $1,
+ * whatever it stands for. */
 export function pointsOf(h: Held): number {
-  return h.card.rank === ACE ? 0 : h.card.rank;
+  return h.card.rank === ACE ? 1 : h.card.rank;
 }
 
 /** Bonus for a run of n in a row: 3 in a row +3, 4 +7, 5 +12, ... */
@@ -92,4 +93,15 @@ export function scoreLine(p: Player): LineScore {
 /** What a hand can pay with: all its cards, runs or not, minus markers. */
 export function handMoney(p: Player): number {
   return Math.max(0, p.line.reduce((sum, h) => sum + pointsOf(h), 0) - p.marker);
+}
+
+/** The cards that score in a line: those in its runs, or all of a Solo. */
+export function countingCards(p: Player): number[] {
+  const sc = scoreLine(p);
+  if (p.status === 'busted') return [];
+  if (sc.solo) return p.line.map((h) => h.card.id);
+  return p.line.filter((h) => {
+    const v = valueOf(h);
+    return v !== null && sc.runs.some((r) => v >= r.from && v <= r.to);
+  }).map((h) => h.card.id);
 }

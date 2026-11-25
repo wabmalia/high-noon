@@ -1,22 +1,29 @@
 <script lang="ts">
   import { SUITS, SUIT_SYMBOL, type CardId, type Suit } from '../engine/cards';
   import { BET, ITEMS, ITEM_NAME, PRICE, TARGET, targets, type GameState, type Item, type Player } from '../engine/game';
-  import { handMoney, scoreLine } from '../engine/score';
+  import { countingCards, handMoney, runBonus, SAME_SUIT_BONUS } from '../engine/score';
   import type { RoomView } from '../net/protocol';
   import { session } from '../net/session.svelte';
   import Hand from './Hand.svelte';
   import { ITEM_TEXT } from './items';
+  import Money from './Money.svelte';
   import RulesSheet from './RulesSheet.svelte';
+  import Sheet from './Sheet.svelte';
+  import TaxChips from './TaxChips.svelte';
 
   let { room }: { room: RoomView } = $props();
 
   const g = $derived(room.game!);
   const me = $derived(g.players.find((p) => p.id === session.me));
+  const others = $derived(g.players.filter((p) => p.id !== session.me));
   const prompt = $derived(g.prompt);
   const mine = $derived(!!prompt && prompt.kind !== 'bet' && prompt.player === session.me);
   const isHost = $derived(session.role === 'host');
   const name = (id: string) => g.players.find((p) => p.id === id)?.name ?? '?';
+  const player = (id: string) => g.players.find((p) => p.id === id)!;
   const connected = (id: string) => room.members.find((m) => m.id === id)?.connected ?? false;
+  const status = (p: Player) =>
+    p.status === 'busted' ? 'Busted' : p.status === 'stayed' ? 'Stayed' : prompt?.kind !== 'bet' && prompt?.player === p.id ? 'Turn' : '';
 
   // My bet this round, which only I know until the round ends.
   const myBet = $derived(session.myBet?.round === g.round ? session.myBet.on : undefined);
@@ -27,18 +34,22 @@
     return targets({ ...g, bets } as unknown as GameState, me, item);
   }
 
-  // Picking targets for an item.
+  // Which sheet is up.
+  const betting = $derived(g.phase === 'bet' && prompt?.kind === 'bet' && !!me && prompt.waiting.includes(me.id));
+  const acing = $derived(mine && prompt?.kind === 'ace');
+  const shopping = $derived(mine && (prompt?.kind === 'shop' || prompt?.kind === 'target'));
+  const summary = $derived(!!g.results && (g.phase === 'roundOver' || g.phase === 'gameOver'));
+
+  // The bar: pick an item, then Buy; then its target, in the same sheet.
+  let chosen = $state<Item | null>(null);
+  let peek = $state(false);
   let pickedCards = $state<CardId[]>([]);
   $effect(() => {
+    if (prompt?.kind !== 'shop') chosen = null;
     if (prompt?.kind !== 'target') pickedCards = [];
   });
   const picking = $derived(mine && prompt?.kind === 'target' ? prompt : null);
-  const pickablePlayers = $derived(picking?.picks === 'player' ? (picking.options as string[]) : []);
-  const pickableCards = $derived(picking && picking.picks !== 'player' ? (picking.options as CardId[]) : []);
-
-  function pickPlayer(id: string) {
-    if (pickablePlayers.includes(id)) session.act({ t: 'player', target: id });
-  }
+  const pickHint: Record<string, string> = { player: 'Pick a player', card: 'Pick a card', two: 'Pick two cards, from two players' };
   function pickCard(id: CardId) {
     if (!picking) return;
     if (picking.picks === 'card') return session.act({ t: 'cards', cards: [id] });
@@ -48,193 +59,231 @@
       pickedCards = [];
     }
   }
+  const optionCards = $derived(picking && picking.picks !== 'player' ? (picking.options as CardId[]) : []);
+  const optionPlayers = $derived(picking?.picks === 'player' ? (picking.options as string[]) : []);
+  const cardHolders = $derived(g.players.filter((p) => p.line.some((h) => optionCards.includes(h.card.id))));
 
   // The Ace: a number and a suit.
   let aceValue = $state<number | null>(null);
   let aceSuit = $state<Suit>('star');
 
-  const pickHint: Record<string, string> = { player: 'Pick a player', card: 'Pick a card', two: 'Pick two cards, from two players' };
+  // The round summary: tap a player for their breakdown.
+  // (Dev previews ending in /open start with every breakdown open.)
+  let expanded = $state<string[]>(import.meta.env.DEV && location.hash.endsWith('/open') ? room.game!.players.map((p) => p.id) : []);
+  $effect(() => {
+    if (!summary) expanded = [];
+  });
+  const toggle = (id: string) => (expanded = expanded.includes(id) ? expanded.filter((x) => x !== id) : [...expanded, id]);
 
   let showRules = $state(false);
-  const others = $derived(g.players.filter((p) => p.id !== session.me));
-  const status = (p: Player) =>
-    p.status === 'busted' ? 'Busted' : p.status === 'stayed' ? 'Stayed' : prompt?.kind !== 'bet' && prompt?.player === p.id ? 'Turn' : '';
 </script>
 
 <main>
   <header>
     <span class="western round">Round {g.round}</span>
-    <span class="muted small">to ${TARGET} · {g.deckCount} left</span>
-    <button class="ghost small-btn" onclick={() => (showRules = true)}>Rules</button>
-    <button class="ghost small-btn leave" onclick={() => session.leave()}>{isHost ? 'Close' : 'Leave'}</button>
+    <span class="muted small goal">to ${TARGET} · {g.deckCount} left</span>
+    <span class="spacer"></span>
+    <button class="small-btn" onclick={() => (showRules = true)}>Rules</button>
+    <button class="small-btn" onclick={() => session.leave()}>{isHost ? 'Close' : 'Leave'}</button>
   </header>
   {#if !session.linked}<p class="warn small center">Reconnecting…</p>{/if}
 
   <section class="seats">
     {#each others as p (p.id)}
-      {@const sc = scoreLine(p)}
-      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div
-        class="seat panel"
-        class:turn={status(p) === 'Turn'}
-        class:busted={p.status === 'busted'}
-        class:pickable={pickablePlayers.includes(p.id)}
-        role={pickablePlayers.includes(p.id) ? 'button' : undefined}
-        tabindex={pickablePlayers.includes(p.id) ? 0 : undefined}
-        onclick={() => pickPlayer(p.id)}
-        onkeydown={(e) => e.key === 'Enter' && pickPlayer(p.id)}
-      >
+      <div class="seat panel" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'}>
         <div class="seat-head">
           <span class="name">{p.name}</span>
           {#if !connected(p.id)}<span class="chip off">away</span>{/if}
-          {#if status(p)}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
-          <span class="bank">${p.bank}</span>
-        </div>
-        <Hand line={p.line} pickable={pickableCards} picked={pickedCards} onpick={pickCard} />
-        <div class="seat-foot muted small">
-          {#if p.status !== 'busted' && p.line.length}<span>${sc.total}</span>{/if}
+          {#if status(p) && status(p) !== 'Busted'}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
           {#if p.double}<span class="badge">x2</span>{/if}
-          {#if p.marker}<span class="badge">-${p.marker}</span>{/if}
-          {#each p.cuts as cutter, i (i)}<span class="badge">Cut: {name(cutter)}</span>{/each}
+          <span class="spacer"></span>
+          <TaxChips cuts={p.cuts} {name} />
         </div>
+        <Hand line={p.line} />
+        <Money {p} />
       </div>
     {/each}
   </section>
 
-  <section class="action panel">
-    {#if g.phase === 'bet' && prompt?.kind === 'bet'}
-      {#if me && prompt.waiting.includes(me.id)}
-        <h2>The Bet!</h2>
-        <p class="muted small">${BET} on who wins this round.</p>
-        <div class="choices">
-          {#each g.players as p (p.id)}
-            <button onclick={() => session.act({ t: 'bet', on: p.id })}>{p.name}</button>
-          {/each}
-          <button class="ghost" onclick={() => session.act({ t: 'bet', on: null })}>No bet</button>
-        </div>
+  <div class="middle">
+    {#if g.log.length}
+      <ul class="log muted small" aria-live="polite">
+        {#each g.log.slice(-3) as line, i (i)}<li>{line}</li>{/each}
+      </ul>
+    {/if}
+  </div>
+
+  {#if me}
+    <section class="mine" class:turn={status(me) === 'Turn'} class:busted={me.status === 'busted'}>
+      <div class="me-bar">
+        <span class="name">{me.name}</span>
+        {#if status(me) && status(me) !== 'Busted'}<span class="chip {status(me).toLowerCase()}">{status(me)}</span>{/if}
+        {#if me.double}<span class="badge">x2</span>{/if}
+        <TaxChips cuts={me.cuts} {name} />
+        <span class="spacer"></span>
+        <Money p={me} />
+      </div>
+      <Hand line={me.line} mine />
+    </section>
+  {/if}
+
+  <!-- Under the thumb: the move, or whose move it is. -->
+  <nav class="actions">
+    {#if g.phase === 'play' && mine && prompt?.kind === 'turn'}
+      <button class="big" onclick={() => session.act({ t: 'stay' })}>Stay</button>
+      <button class="primary big" onclick={() => session.act({ t: 'flip' })}>Flip</button>
+    {:else}
+      <p class="muted status">
+        {#if g.phase === 'bet'}Bets are in…{myBet ? ` You backed ${name(myBet)}.` : ''}
+        {:else if g.phase === 'play' && !prompt}Dealing…
+        {:else if prompt && prompt.kind !== 'bet' && !mine}{name(prompt.player)}'s move…
+        {:else}&nbsp;{/if}
+      </p>
+    {/if}
+  </nav>
+</main>
+
+{#if betting}
+  <Sheet title="The Bet!" sub="${BET} on who wins this round.">
+    {#each g.players as p (p.id)}
+      <button class="row-btn" onclick={() => session.act({ t: 'bet', on: p.id })}>
+        <span class="row-head"><span class="name">{p.name}{p.id === session.me ? ' (you)' : ''}</span><b class="bank">${p.bank}</b></span>
+      </button>
+    {/each}
+    {#snippet actions()}
+      <button onclick={() => session.act({ t: 'bet', on: null })}>No bet</button>
+    {/snippet}
+  </Sheet>
+{/if}
+
+{#if acing}
+  <Sheet title="Ace!" sub="Worth $1. Which card is it?">
+    <div class="grid">
+      {#each Array.from({ length: 10 }, (_, i) => i + 1) as v (v)}
+        <button class:sel={aceValue === v} onclick={() => (aceValue = v)}>{v}</button>
+      {/each}
+    </div>
+    <div class="suits">
+      {#each SUITS as s (s)}
+        <button class:sel={aceSuit === s} onclick={() => (aceSuit = s)} aria-label={s}>{SUIT_SYMBOL[s]}</button>
+      {/each}
+    </div>
+    {#if me}<div class="row-card"><span class="name">Your hand</span><Hand line={me.line} /></div>{/if}
+    {#snippet actions()}
+      <button
+        class="primary"
+        disabled={aceValue === null}
+        onclick={() => {
+          session.act({ t: 'ace', value: aceValue!, suit: aceSuit });
+          aceValue = null;
+        }}>OK</button
+      >
+    {/snippet}
+  </Sheet>
+{/if}
+
+{#if shopping && me}
+  {#if picking}
+    <Sheet title={ITEM_NAME[picking.item]} sub={pickHint[picking.picks]}>
+      {#if picking.picks === 'player'}
+        {#each optionPlayers as id (id)}
+          {@const p = player(id)}
+          <button class="row-btn" onclick={() => session.act({ t: 'player', target: id })}>
+            <span class="row-head"><span class="name">{p.name}{id === session.me ? ' (you)' : ''}</span><Money {p} /></span>
+            <Hand line={p.line} />
+          </button>
+        {/each}
       {:else}
-        <p>Bets are in… {myBet ? `You backed ${name(myBet)}.` : ''}</p>
-      {/if}
-    {:else if g.phase === 'play'}
-      {#if !prompt}
-        <p class="muted">Dealing…</p>
-      {:else if !mine}
-        <p class="muted">{name(prompt.kind === 'bet' ? '' : prompt.player)}'s move…</p>
-      {:else if prompt.kind === 'turn'}
-        <div class="row">
-          <button class="primary big" onclick={() => session.act({ t: 'flip' })}>Flip</button>
-          <button class="big" onclick={() => session.act({ t: 'stay' })}>Stay</button>
-        </div>
-      {:else if prompt.kind === 'ace'}
-        <h2>Ace!</h2>
-        <div class="grid">
-          {#each Array.from({ length: 10 }, (_, i) => i + 1) as v (v)}
-            <button class:sel={aceValue === v} onclick={() => (aceValue = v)}>{v}</button>
-          {/each}
-        </div>
-        <div class="row">
-          {#each SUITS as s (s)}
-            <button class="suit {s}" class:sel={aceSuit === s} onclick={() => (aceSuit = s)} aria-label={s}>{SUIT_SYMBOL[s]}</button>
-          {/each}
-        </div>
-        <button
-          class="primary"
-          disabled={aceValue === null}
-          onclick={() => {
-            session.act({ t: 'ace', value: aceValue!, suit: aceSuit });
-            aceValue = null;
-          }}>OK</button
-        >
-      {:else if prompt.kind === 'shop' && me}
-        <div class="bar-head">
-          <div>
-            <h2>The bar</h2>
-            <p class="muted small">Hand ${handMoney(me)} · Bank ${me.bank}</p>
+        {#each cardHolders as p (p.id)}
+          <div class="row-card">
+            <span class="name">{p.name}{p.id === session.me ? ' (you)' : ''}</span>
+            <Hand line={p.line} pickable={optionCards} picked={pickedCards} onpick={pickCard} />
           </div>
-          <button class="primary" onclick={() => session.act({ t: 'pass' })}>Done</button>
-        </div>
-        <div class="shop">
-          {#each ITEMS as item (item)}
-            <button class="item" disabled={!options(item)} onclick={() => session.act({ t: 'buy', item })}>
-              <span class="item-name">{ITEM_NAME[item]}</span><span class="price">${PRICE[item]}</span>
-              <span class="item-text">{ITEM_TEXT[item]}</span>
-            </button>
-          {/each}
-        </div>
-      {:else if prompt.kind === 'target'}
-        <h2>{ITEM_NAME[prompt.item]}</h2>
-        <p>{pickHint[prompt.picks]}</p>
-        <button class="ghost" onclick={() => session.act({ t: 'cancel' })}>Back</button>
+        {/each}
       {/if}
-    {:else if g.results}
-      {#if g.phase === 'gameOver'}
-        <h2>{g.winners.map(name).join(' & ')} win{g.winners.length > 1 ? '' : 's'}!</h2>
-      {:else}
-        <h2>Round {g.round}</h2>
+      {#snippet actions()}
+        <button onclick={() => session.act({ t: 'cancel' })}>Back</button>
+      {/snippet}
+    </Sheet>
+  {:else}
+    <Sheet title="The bar" sub="Hand ${handMoney(me)} · Bank ${me.bank}">
+      {#snippet top()}
+        <button class="small-btn" onclick={() => (peek = !peek)}>{peek ? 'Hide table' : 'Table'}</button>
+      {/snippet}
+      {#if peek}
+        {#each g.players as p (p.id)}
+          <div class="row-card">
+            <span class="row-head"><span class="name">{p.name}{p.id === session.me ? ' (you)' : ''}</span><Money {p} /></span>
+            <Hand line={p.line} />
+          </div>
+        {/each}
       {/if}
-      <table>
-        <tbody>
-          {#each g.results as r (r.player)}
-            <tr class:won={g.roundWinners.includes(r.player)}>
-              <td class="name">{name(r.player)}</td>
-              <td class="muted small">
-                {r.kept ? `$${r.kept}` : '$0'}{r.cutIncome ? ` +$${r.cutIncome} cut` : ''}{r.bet !== null
-                  ? ` · bet ${name(r.bet)} ${r.betWon ? `+$${r.betWon}` : `-$${BET}`}`
-                  : ''}
-              </td>
-              <td class="gain">{r.gain >= 0 ? '+' : ''}{r.gain}</td>
-              <td class="bank">${g.players.find((p) => p.id === r.player)?.bank}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      {#each ITEMS as item (item)}
+        <button class="item" class:sel={chosen === item} disabled={!options(item)} onclick={() => (chosen = chosen === item ? null : item)}>
+          <span class="item-name">{ITEM_NAME[item]}</span><span class="price">${PRICE[item]}</span>
+          <span class="item-text">{ITEM_TEXT[item]}</span>
+        </button>
+      {/each}
+      {#snippet actions()}
+        <button onclick={() => session.act({ t: 'pass' })}>Skip</button>
+        <button class="primary" disabled={!chosen} onclick={() => chosen && session.act({ t: 'buy', item: chosen })}>
+          {chosen ? `Buy · $${PRICE[chosen]}` : 'Buy'}
+        </button>
+      {/snippet}
+    </Sheet>
+  {/if}
+{/if}
+
+{#if summary && g.results}
+  <Sheet
+    title={g.phase === 'gameOver' ? `${g.winners.map(name).join(' & ')} win${g.winners.length > 1 ? '' : 's'}!` : `Round ${g.round}`}
+    sub="Tap a player for the details."
+  >
+    {#each g.results as r (r.player)}
+      {@const p = player(r.player)}
+      {@const sc = r.score}
+      <button class="row-btn result" class:won={g.roundWinners.includes(r.player)} onclick={() => toggle(r.player)}>
+        <span class="row-head">
+          <span class="name">{p.name}{p.id === session.me ? ' (you)' : ''}</span>
+          <span class="gain">{r.gain >= 0 ? '+' : '−'}${Math.abs(r.gain)}</span>
+          <b class="bank">${p.bank}</b>
+        </span>
+        {#if expanded.includes(r.player)}
+          <Hand line={p.line} counting={countingCards(p)} />
+          <dl class="breakdown">
+            {#if p.status === 'busted'}
+              <dt>Busted</dt><dd>$0</dd>
+            {:else}
+              <dt>{sc.solo ? 'Solo' : 'Runs'}</dt><dd>${sc.cards}{sc.double ? ` x2 = $${sc.cards * 2}` : ''}</dd>
+              {#each sc.runs as run, i (i)}
+                {#if runBonus(run.to - run.from + 1) || run.sameSuit}
+                  <dt>{run.from}–{run.to}</dt>
+                  <dd>+${runBonus(run.to - run.from + 1) + (run.sameSuit ? SAME_SUIT_BONUS : 0)}{run.sameSuit ? ' (one suit)' : ''}</dd>
+                {/if}
+              {/each}
+              {#if sc.marker}<dt>Bar tab</dt><dd>−${sc.marker}</dd>{/if}
+              {#if p.cuts.length}<dt>Tax</dt><dd>−${sc.total - r.kept} to {p.cuts.map(name).join(', ')}</dd>{/if}
+            {/if}
+            {#if r.cutIncome}<dt>Tax in</dt><dd>+${r.cutIncome}</dd>{/if}
+            {#if r.bet !== null}<dt>Bet on {name(r.bet)}</dt><dd>{r.betWon ? `+$${r.betWon} ` : ''}−${BET}</dd>{/if}
+          </dl>
+        {/if}
+      </button>
+    {/each}
+    {#snippet actions()}
       {#if g.phase === 'gameOver'}
         {#if isHost}
-          <div class="row">
-            <button class="primary" onclick={() => session.start()}>Play again</button>
-            <button onclick={() => session.backToLobby()}>Lobby</button>
-          </div>
+          <button onclick={() => session.backToLobby()}>Lobby</button>
+          <button class="primary" onclick={() => session.start()}>Play again</button>
         {:else}
-          <p class="muted small">Waiting for the host…</p>
+          <p class="muted center">Waiting for the host…</p>
         {/if}
       {:else}
         <button class="primary" onclick={() => session.act({ t: 'next' })}>Next round</button>
       {/if}
-    {/if}
-  </section>
-
-  {#if g.log.length && !(mine && prompt?.kind === 'shop')}
-    <ul class="log muted small" aria-live="polite">
-      {#each g.log.slice(-3) as line, i (i)}<li>{line}</li>{/each}
-    </ul>
-  {/if}
-
-  {#if me}
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <section
-      class="mine"
-      class:turn={status(me) === 'Turn'}
-      class:busted={me.status === 'busted'}
-      class:pickable={pickablePlayers.includes(me.id)}
-      role={pickablePlayers.includes(me.id) ? 'button' : undefined}
-      tabindex={pickablePlayers.includes(me.id) ? 0 : undefined}
-      onclick={() => pickPlayer(me.id)}
-      onkeydown={(e) => e.key === 'Enter' && pickPlayer(me.id)}
-    >
-      <div class="me-bar">
-        <span class="name">{me.name}</span>
-        {#if status(me)}<span class="chip {status(me).toLowerCase()}">{status(me)}</span>{/if}
-        {#if me.status !== 'busted' && me.line.length}<span class="muted small">Scores ${scoreLine(me).total}</span>{/if}
-        {#if me.double}<span class="badge small">x2</span>{/if}
-        {#if me.marker}<span class="badge small">-${me.marker}</span>{/if}
-        {#each me.cuts as cutter, i (i)}<span class="badge small">Cut: {name(cutter)}</span>{/each}
-        <span class="bank">${me.bank}</span>
-      </div>
-      <Hand line={me.line} mine pickable={pickableCards} picked={pickedCards} onpick={pickCard} />
-    </section>
-  {/if}
-
-</main>
+    {/snippet}
+  </Sheet>
+{/if}
 
 {#if showRules}
   <RulesSheet onclose={() => (showRules = false)} />
@@ -245,7 +294,7 @@
     max-width: 560px;
     min-height: 100dvh;
     margin: 0 auto;
-    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
+    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
       max(12px, env(safe-area-inset-left));
     display: flex;
     flex-direction: column;
@@ -254,22 +303,35 @@
   header {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
   .round {
     color: var(--gold);
     font-size: 1.2rem;
     white-space: nowrap;
   }
-  header .small-btn {
-    margin-left: auto;
+  .spacer {
+    flex: 1;
+  }
+  .goal {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
   .small {
     font-size: 0.85rem;
   }
   .small-btn {
-    padding: 0.3rem 0.6rem;
+    padding: 0.3rem 0.7rem;
     font-size: 0.85rem;
+  }
+  .center {
+    margin: 0;
+    text-align: center;
+  }
+  .warn {
+    color: var(--bad);
   }
   /* Across the table: the others, side by side when there's room. */
   .seats {
@@ -281,7 +343,7 @@
     padding: 0.5rem 0.7rem;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
   .seat.turn {
     border-color: var(--gold);
@@ -289,52 +351,19 @@
   .seat.busted {
     opacity: 0.55;
   }
-  .seat.pickable {
-    cursor: pointer;
-    outline: 3px dashed var(--gold);
-    outline-offset: 2px;
-  }
-  /* My seat: the bottom of the screen, my hand held up toward me. */
-  .mine {
-    margin-top: auto;
-    padding: 0.5rem 0.6rem 1rem;
-    border-radius: var(--radius) var(--radius) 0 0;
-    background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
-    box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.06), var(--shadow);
-    border: 1px solid #2a4a2f;
-  }
-  .mine.turn {
-    border-color: var(--gold);
-  }
-  .mine.busted :global(.hand) {
-    opacity: 0.5;
-  }
-  .mine.pickable {
-    cursor: pointer;
-    outline: 3px dashed var(--gold);
-  }
-  .me-bar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 0.2rem;
-  }
-  .seat-head {
+  .seat-head,
+  .me-bar,
+  .row-head {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    min-width: 0;
   }
   .name {
     font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .bank {
-    margin-left: auto;
-    font-family: var(--western);
-    color: var(--gold);
   }
   .chip {
     font-size: 0.72rem;
@@ -346,10 +375,6 @@
     background: var(--gold);
     color: #2a1a0e;
   }
-  .chip.busted {
-    background: var(--bad);
-    color: #fff;
-  }
   .chip.stayed {
     background: var(--stay);
     color: #fff;
@@ -357,92 +382,118 @@
   .chip.off {
     color: var(--muted);
   }
-  .seat-foot {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    min-height: 1.1rem;
-  }
   .badge {
+    font-size: 0.8rem;
+    font-weight: 800;
     padding: 0 0.4rem;
     border-radius: 6px;
-    background: rgb(0 0 0 / 0.25);
-    color: var(--text);
+    background: var(--gold);
+    color: #2a1a0e;
   }
-  .action {
-    padding: 0.8rem;
+  .middle {
+    flex: 1;
     display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    align-items: stretch;
-    text-align: center;
-  }
-  .action h2 {
-    margin: 0;
-    color: var(--gold);
-    font-size: 1.3rem;
-  }
-  .action p {
-    margin: 0;
-  }
-  .row {
-    display: flex;
-    gap: 0.5rem;
+    align-items: center;
     justify-content: center;
   }
-  .row > * {
+  .log {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    text-align: center;
+  }
+  /* My seat: my hand held up toward me, on the felt. */
+  .mine {
+    padding: 0.5rem 0.6rem 0.8rem;
+    border-radius: var(--radius);
+    background: radial-gradient(ellipse at 50% 120%, #3d6b45 0%, #2b4d31 55%, #1f3824 100%);
+    box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.06), var(--shadow);
+    border: 1px solid #2a4a2f;
+  }
+  .mine.turn {
+    border-color: var(--gold);
+  }
+  .mine.busted :global(.hand) {
+    opacity: 0.5;
+  }
+  .me-bar {
+    margin-bottom: 0.2rem;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    min-height: 3.4rem;
+  }
+  .actions > button {
     flex: 1;
   }
   .big {
-    padding: 0.85rem;
-    font-size: 1.1rem;
+    padding: 0.9rem;
+    font-size: 1.15rem;
   }
-  .choices {
+  .actions .primary.big {
+    flex: 1.6;
+  }
+  .status {
+    margin: auto;
+  }
+  /* In the sheets. */
+  .row-btn {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    text-align: left;
+    padding: 0.7rem 0.8rem;
+  }
+  .row-head {
+    justify-content: space-between;
+  }
+  .row-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .bank {
+    font-family: var(--western);
+    font-weight: 400;
+    color: var(--gold);
   }
   .grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 0.35rem;
+    gap: 0.4rem;
+  }
+  .grid button,
+  .suits button {
+    padding: 0.8rem 0;
+    font-size: 1.15rem;
+  }
+  .suits {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
   }
   .sel {
     background: var(--gold);
     color: #2a1a0e;
     border-color: var(--gold);
   }
-  .suit {
-    font-size: 1.3rem;
-  }
-  .bar-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    text-align: left;
-  }
-  .bar-head button {
-    padding-inline: 1.4rem;
-  }
-  /* One item per row: name and price, what it does underneath. The list
-     scrolls on its own, so my hand stays in view on small phones. */
-  .shop {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    max-height: max(9rem, calc(100dvh - 29.5rem));
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
   .item {
     display: grid;
     grid-template-columns: 1fr auto;
     column-gap: 0.5rem;
     text-align: left;
-    padding: 0.4rem 0.7rem;
+    padding: 0.55rem 0.8rem;
     font-size: 0.95rem;
+  }
+  .item.sel .item-text,
+  .item.sel .price {
+    color: #2a1a0e;
   }
   .item-text {
     grid-column: 1 / -1;
@@ -454,41 +505,29 @@
     color: var(--gold);
     font-family: var(--western);
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
+  .result .gain {
+    margin-left: auto;
+    font-weight: 800;
   }
-  td {
-    padding: 0.3rem 0.2rem;
-    border-bottom: 1px solid var(--border);
+  .result .bank {
+    min-width: 3.2rem;
+    text-align: right;
   }
-  tr.won .name {
+  .result.won .name {
     color: var(--gold);
   }
-  .gain {
-    text-align: right;
-    font-weight: 700;
+  .breakdown {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.15rem 0.8rem;
+    margin: 0.2rem 0 0;
+    font-size: 0.88rem;
   }
-  td.bank {
-    text-align: right;
-    font-family: var(--western);
-    color: var(--gold);
-  }
-  .log {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    text-align: center;
-  }
-  .leave {
+  .breakdown dt {
     color: var(--muted);
   }
-  .center {
+  .breakdown dd {
     margin: 0;
-    text-align: center;
-  }
-  .warn {
-    color: var(--bad);
+    font-weight: 700;
   }
 </style>

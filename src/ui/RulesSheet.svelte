@@ -12,7 +12,7 @@
     <li>Flip a card or stay. A number you already have: <b>busted</b>.</li>
     <li>Only <b>runs</b> score: 4-5, 7-8-9. A lone card scores only if it's your whole hand.</li>
     <li>Longer runs pay more: 3 in a row +$3, 4 +$7, 5 +$12… Five of one suit: +$10.</li>
-    <li><b>Ace</b>: any number and suit you want, worth $0.</li>
+    <li><b>Ace</b>: any number and suit you want, worth $1.</li>
     <li>After each flip, buy one thing at the bar. Pay with your hand (it lowers your score) or your bank.</li>
     <li><b>The Bet</b>: before a round, $5 on who wins it. Right bets split the winner's score.</li>
     <li>First to <b>${TARGET}</b>.</li>

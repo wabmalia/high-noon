@@ -83,8 +83,10 @@ export type GameAction =
 interface Step {
   to: PlayerId;
   mode: 'deal' | 'flip' | 'road' | 'roulette';
-  /** Roulette: who bought it (refunded if the target survives the last card). */
+  /** Roulette: who bought it, and how they paid: refunded the same way if the
+   * target survives the last card. */
   buyer?: PlayerId;
+  paid?: Paid;
   last?: boolean;
 }
 
@@ -338,9 +340,11 @@ function afterReceive(s: GameState, p: Player, st: Step) {
   if (st.mode === 'roulette') {
     if (p.status === 'busted') {
       s.queue = s.queue.filter((q) => q.mode !== 'roulette');
-    } else if (st.last && st.buyer) {
+    } else if (st.last && st.buyer && st.paid) {
+      // Back where it came from: the hand's marker, the bank, or both.
       const buyer = player(s, st.buyer);
-      buyer.bank += PRICE.roulette;
+      buyer.marker = Math.max(0, buyer.marker - st.paid.hand);
+      buyer.bank += st.paid.bank;
       log(s, `${p.name} survived the Roulette: ${buyer.name} gets $${PRICE.roulette} back`);
     }
   }
@@ -462,7 +466,7 @@ function target(s: GameState, me: Player, prompt: Extract<Prompt, { kind: 'targe
   if (prompt.picks === 'player') {
     if (action.t !== 'player' || !options.includes(action.target)) fail('Pick a player');
     const t = player(s, (action as { target: PlayerId }).target);
-    pay(s, me, item);
+    const paid = pay(s, me, item);
     log(s, `${me.name}: ${ITEM_NAME[item]} on ${t.name}`);
     if (item === 'cut') {
       t.cuts.push(me.id);
@@ -474,6 +478,7 @@ function target(s: GameState, me: Player, prompt: Extract<Prompt, { kind: 'targe
         to: t.id,
         mode: 'roulette' as const,
         buyer: me.id,
+        paid,
         last: i === ROULETTE_CARDS - 1,
       }));
     return run(s);
@@ -527,13 +532,19 @@ function target(s: GameState, me: Player, prompt: Extract<Prompt, { kind: 'targe
   moveOn(s);
 }
 
+export interface Paid {
+  hand: number;
+  bank: number;
+}
+
 /** Pay with the hand first (a -$ marker for this round), the rest from the bank. */
-function pay(s: GameState, p: Player, item: Item) {
+function pay(s: GameState, p: Player, item: Item): Paid {
   const price = PRICE[item];
   if (spendable(s, p) < price) fail("You can't afford that");
-  const fromHand = Math.min(price, handMoney(p));
-  p.marker += fromHand;
-  p.bank -= price - fromHand;
+  const hand = Math.min(price, handMoney(p));
+  p.marker += hand;
+  p.bank -= price - hand;
+  return { hand, bank: price - hand };
 }
 
 // End of a round --------------------------------------------------------------

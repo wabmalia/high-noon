@@ -47,6 +47,8 @@ export function previewRoom(me: string, screen: string): RoomView {
     // The same hand while picking a card of mine: every stack opens.
     you.line = [c(6, 'star'), c(7, 'star', { shoe: true }), c(7, 'gold', { shoe: true }), c(7, 'cactus'), c(8, 'horse'), c(9, 'horse', { shoe: true }), c(9, 'star')];
     s.prompt = { kind: 'target', player: me, item: 'shoot', picks: 'card', options: you.line.map((h) => h.card.id) };
+  } else if (screen === 'roulette') {
+    s.prompt = { kind: 'target', player: me, item: 'roulette', picks: 'player', options: [me, 'b', 'c'] };
   } else if (screen === 'bet') {
     s.phase = 'bet';
     for (const p of s.players) p.line = [];
