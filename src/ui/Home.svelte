@@ -36,6 +36,7 @@
 
 <main>
   <header>
+    <img class="logo" src="icon.svg" alt="" width="96" height="96" />
     <h1>High Noon</h1>
     <p class="muted">Flip cards, build runs, spend your winnings at the bar. First to $123.</p>
   </header>
@@ -129,8 +130,15 @@
   header {
     text-align: center;
   }
+  .logo {
+    display: block;
+    margin: 2.2rem auto 0;
+    width: 6rem;
+    height: 6rem;
+    filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.45));
+  }
   h1 {
-    margin: 2.5rem 0 0.25rem;
+    margin: 0.4rem 0 0.25rem;
     font-size: 3rem;
     line-height: 1;
     color: var(--gold);

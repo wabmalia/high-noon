@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#24160e"/><circle cx="32" cy="34" r="17" fill="#e0a83c"/><path d="M14 30h36M20 24h24" stroke="#24160e" stroke-width="3"/><rect x="18" y="12" width="28" height="12" rx="3" fill="#c2412d"/><rect x="10" y="22" width="44" height="5" rx="2.5" fill="#c2412d"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- High Noon: the sun over a pair of saloon batwing doors. -->
+  <rect width="64" height="64" rx="14" fill="#24160e"/>
+  <g stroke="#e0a83c" stroke-width="2.6" stroke-linecap="round">
+    <path d="M32 4v5M32 43v5M10 26h5M49 26h5M16.4 10.4l3.5 3.5M44.1 38.1l3.5 3.5M47.6 10.4l-3.5 3.5M19.9 38.1l-3.5 3.5"/>
+  </g>
+  <circle cx="32" cy="26" r="17" fill="#e0a83c" opacity=".22"/>
+  <circle cx="32" cy="26" r="12.5" fill="#f2c25a"/>
+  <!-- The posts, then the two doors, their tops dipping toward the middle. -->
+  <rect x="6" y="28" width="3" height="30" rx="1" fill="#3a2414"/>
+  <rect x="55" y="28" width="3" height="30" rx="1" fill="#3a2414"/>
+  <g stroke="#3a2414" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M9 31c8-2 15 0 22 7v18H9z" fill="#9c4f27"/>
+    <path d="M55 31c-8-2-15 0-22 7v18h22z" fill="#9c4f27"/>
+  </g>
+  <!-- Slats and a rail across each door. -->
+  <g stroke="#6b3418" stroke-width="1.2">
+    <path d="M14 32v24M19 32.2v23.8M24 33.6v22.4M50 32v24M45 32.2v23.8M40 33.6v22.4"/>
+  </g>
+  <g fill="#3a2414">
+    <rect x="9" y="46" width="22" height="2.4"/>
+    <rect x="33" y="46" width="22" height="2.4"/>
+  </g>
+</svg>
