@@ -86,14 +86,20 @@
 
   // Scroll shadows on the seats: is there more above or below?
   let seatsEl = $state<HTMLElement | null>(null);
-  let atTop = $state(true);
-  let atBottom = $state(true);
+  // How many players are scrolled out of sight, above and below.
+  let hiddenUp = $state(0);
+  let hiddenDown = $state(0);
   function edges() {
     const el = seatsEl;
     if (!el) return;
-    atTop = el.scrollTop <= 1;
-    atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+    const box = el.getBoundingClientRect();
+    const rows = [...el.children].map((c) => c.getBoundingClientRect());
+    hiddenUp = rows.filter((r) => r.top < box.top - 4).length;
+    hiddenDown = rows.filter((r) => r.bottom > box.bottom + 4).length;
   }
+  const nudge = (dir: 1 | -1) => seatsEl?.scrollBy({ top: dir * seatsEl.clientHeight * 0.8, behavior: 'smooth' });
+
+  let menu = $state(import.meta.env.DEV && location.hash.endsWith('/menu'));
   $effect(() => {
     void others.length;
     void g;
@@ -110,31 +116,33 @@
     <span class="western round">Round {g.round}</span>
     <span class="muted small goal">to ${TARGET} · {g.deckCount} left</span>
     <span class="spacer"></span>
-    <button class="small-btn" onclick={() => (showRules = true)}>Rules</button>
-    <button class="small-btn" onclick={() => session.leave()}>{isHost ? 'Close' : 'Leave'}</button>
+    <button class="menu-btn" onclick={() => (menu = true)} aria-label="Menu">☰</button>
   </header>
   {#if !session.linked}<p class="warn small center">Reconnecting…</p>{/if}
 
   <!-- The others, one row each. If they don't all fit, this part scrolls,
        with a shadow at the edge where more is hidden. Tap a row for a closer
        look. -->
-  <section class="seats" class:more-up={!atTop} class:more-down={!atBottom} bind:this={seatsEl} onscroll={edges}>
-    {#each others as p (p.id)}
-      <button class="seat" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'} onclick={() => (looking = p.id)}>
-        <span class="seat-who">
-          <span class="name">{p.name}</span>
-          <span class="seat-tags">
+  <div class="seats-wrap" class:more-up={hiddenUp > 0} class:more-down={hiddenDown > 0}>
+    <section class="seats" bind:this={seatsEl} onscroll={edges}>
+      {#each others as p (p.id)}
+        <button class="seat" class:turn={status(p) === 'Turn'} class:busted={p.status === 'busted'} onclick={() => (looking = p.id)}>
+          <span class="seat-top">
+            <span class="name">{p.name}</span>
             {#if !connected(p.id)}<span class="chip off">away</span>{/if}
             {#if status(p)}<span class="chip {status(p).toLowerCase()}">{status(p)}</span>{/if}
             {#if p.double}<span class="badge">x2</span>{/if}
             <TaxChips cuts={p.cuts} {name} />
+            <span class="spacer"></span>
+            <Money {p} compact />
           </span>
-        </span>
-        <span class="seat-hand"><Hand line={p.line} toggle={false} /></span>
-        <span class="seat-money"><Money {p} compact /></span>
-      </button>
-    {/each}
-  </section>
+          <span class="seat-hand"><Hand line={p.line} toggle={false} /></span>
+        </button>
+      {/each}
+    </section>
+    {#if hiddenUp}<button class="more up" onclick={() => nudge(-1)}>▴ {hiddenUp} more</button>{/if}
+    {#if hiddenDown}<button class="more down" onclick={() => nudge(1)}>▾ {hiddenDown} more</button>{/if}
+  </div>
 
   <div class="middle">
     {#if g.log.length}
@@ -333,6 +341,16 @@
   </Sheet>
 {/if}
 
+{#if menu}
+  <Sheet title="Menu" sub="Room {room.code}">
+    <button class="row-btn" onclick={() => ((menu = false), (showRules = true))}>Rules</button>
+    <button class="row-btn" onclick={() => session.leave()}>{isHost ? 'Close the room' : 'Leave the game'}</button>
+    {#snippet actions()}
+      <button onclick={() => (menu = false)}>Back</button>
+    {/snippet}
+  </Sheet>
+{/if}
+
 {#if showRules}
   <RulesSheet onclose={() => (showRules = false)} />
 {/if}
@@ -382,33 +400,76 @@
   .warn {
     color: var(--bad);
   }
-  /* Across the table: the others, one row each, scrolling if needed. */
-  .seats {
+  /* Across the table: the others, one row each, scrolling if they don't
+     all fit; a shadow and a "more" pill at the edge where some are hidden. */
+  .seats-wrap {
     position: relative;
     flex: 0 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .seats {
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    /* Shadows inside the edges where more players are hidden. */
-    --shade-up: 0;
-    --shade-down: 0;
-    mask-image: linear-gradient(to bottom, rgb(0 0 0 / calc(1 - var(--shade-up))) 0, #000 1.6rem, #000 calc(100% - 1.6rem), rgb(0 0 0 / calc(1 - var(--shade-down))) 100%);
+    scrollbar-width: none;
   }
-  .seats.more-up {
-    --shade-up: 0.85;
+  .seats::-webkit-scrollbar {
+    display: none;
   }
-  .seats.more-down {
-    --shade-down: 0.85;
+  .seats-wrap::before,
+  .seats-wrap::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 1;
+  }
+  .seats-wrap::before {
+    top: 0;
+    background: linear-gradient(to bottom, rgb(10 6 3 / 0.85), transparent);
+  }
+  .seats-wrap::after {
+    bottom: 0;
+    background: linear-gradient(to top, rgb(10 6 3 / 0.85), transparent);
+  }
+  .seats-wrap.more-up::before,
+  .seats-wrap.more-down::after {
+    opacity: 1;
+  }
+  .more {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    padding: 0.15rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #2a1a0e;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+  }
+  .more.up {
+    top: 0.3rem;
+  }
+  .more.down {
+    bottom: 0.3rem;
   }
   .seat {
-    display: grid;
-    grid-template-columns: minmax(4.5rem, 7.5rem) 1fr auto;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.35rem 0.6rem 0.4rem;
     text-align: left;
     border-radius: 10px;
     border: 1px solid var(--border);
@@ -422,23 +483,22 @@
   .seat.busted {
     opacity: 0.55;
   }
-  .seat-who {
+  .seat-top {
     display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    align-items: center;
+    gap: 0.35rem;
     min-width: 0;
   }
-  .seat-hand {
-    min-width: 0;
+  .seat-top :global(.chips) {
+    transform: scale(0.8);
   }
-  .seat-money :global(.money) {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0;
-    font-size: 0.78rem;
+  .seat-top :global(.money) {
+    font-size: 0.8rem;
   }
-  .seat-money :global(.money .bank) {
-    font-size: 0.95rem;
+  .menu-btn {
+    padding: 0.25rem 0.7rem;
+    font-size: 1.15rem;
+    line-height: 1.2;
   }
   .look-tags {
     display: flex;

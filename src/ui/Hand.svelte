@@ -160,7 +160,8 @@
     container-type: inline-size;
   }
   .theirs .tilt {
-    --w: min(2.2rem, calc(100cqw / var(--fit)));
+    /* Readable on any phone: never smaller than 1.75rem a card. */
+    --w: clamp(1.75rem, calc(100cqw / var(--fit)), 2.4rem);
     flex-wrap: nowrap;
     gap: calc(var(--w) * 0.27);
     min-height: calc(var(--w) * 1.4 + 0.2rem);
